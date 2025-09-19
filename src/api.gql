@@ -1,0 +1,133 @@
+# ------------------------------------------------------
+# THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+# ------------------------------------------------------
+
+enum ClientTypeEnum {
+  ENQUIRY
+  IMPORTANT
+  INTERESTED
+}
+
+input CreateIpkLeaddInput {
+  age: Float
+  clientTypes: [ClientTypeEnum]
+  companyName: String
+  designation: String
+  email: String
+  firstName: String
+  gender: String
+  investmentRange: String
+  lastName: String
+  leadSource: String!
+  location: String
+  name: String
+  phone: String!
+  product: String
+  profession: String
+  referralCode: String
+  remark: String
+  sipAmount: Float
+}
+
+input CreateUserInput {
+  archived: Boolean! = false
+  email: String!
+  gender: Gender
+  name: String!
+  phone: String
+  role: UserRoles!
+  status: Status! = ACTIVE
+}
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
+
+enum Gender {
+  FEMALE
+  MALE
+  OTHER
+}
+
+type IpkLeaddEntity {
+  age: Float
+  assignedRM: String
+  assignedRm: UserEntity
+  clientTypes: [ClientTypeEnum]
+  companyName: String
+  createdAt: DateTime!
+  designation: String
+  email: String
+  firstName: String
+  gender: String
+  id: ID!
+  investmentRange: String
+  lastName: String
+  leadCode: String
+  leadSource: String
+  location: String
+  name: String
+  phone: String
+  product: String
+  profession: String
+  referralCode: String
+  remark: String
+  sipAmount: Float
+  status: LeadStatus!
+  updatedAt: DateTime!
+}
+
+enum LeadStatus {
+  CLOSED
+  ON_HOLD
+  OPEN
+}
+
+type Mutation {
+  assignLead(id: ID!): IpkLeaddEntity!
+  createIpkLeadd(input: CreateIpkLeaddInput!): IpkLeaddEntity!
+  createUser(input: CreateUserInput!): UserEntity!
+  removeUser(id: ID!): UserEntity!
+  updateUser(id: ID!, input: UpdateUserDto!): UserEntity!
+}
+
+type Query {
+  getActiveUsers: [UserEntity!]!
+  getUser(id: ID!): UserEntity
+  getUsers: [UserEntity!]!
+  ipkLeadds: [IpkLeaddEntity!]!
+}
+
+enum Status {
+  ACTIVE
+  INACTIVE
+}
+
+input UpdateUserDto {
+  active: Boolean
+  archived: Boolean
+  email: String
+  gender: Gender
+  name: String
+  phone: String
+  role: UserRoles
+  status: Status
+}
+
+type UserEntity {
+  email: String!
+  gender: String
+  id: ID!
+  name: String!
+  phone: String
+  role: UserRoles!
+  status: Status!
+}
+
+enum UserRoles {
+  ADMIN
+  MARKETING
+  RM
+  STAFF
+}

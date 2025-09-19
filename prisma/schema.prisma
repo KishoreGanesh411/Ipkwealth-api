@@ -1,0 +1,150 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "darwin", "debian-openssl-1.1.x"]
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRoles {
+  ADMIN
+  RM
+  STAFF
+  MARKETING
+}
+
+enum LeadEventType {
+  REVISIT
+  NOTE
+  ASSIGNMENT
+  STATUS_CHANGE
+}
+
+model LeadEvent {
+  id         String      @id @default(auto()) @map("_id") @db.ObjectId
+  leadId     String      @db.ObjectId
+  type       LeadEventType
+  occurredAt DateTime    @default(now())
+  meta       Json?
+  @@index([leadId, occurredAt])
+  @@map("lead_event")
+}
+
+enum Status {
+  ACTIVE
+  INACTIVE
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum Profession {
+  SELF_EMPLOYED
+  BUSINESS
+  EMPLOYEE
+}
+
+enum Product {
+  IAP
+  SIP
+}
+
+
+enum LeadStatus {
+  PENDING
+  ASSIGNED
+  ON_HOLD
+  CLOSED
+  OPEN
+}
+
+model Counter {
+  id      String @id @default(auto()) @map("_id") @db.ObjectId
+  key     String @unique            // e.g. "lead_seq_2509"
+  current Int    @default(0)
+  @@map("counter")
+}
+
+model AssignmentMeta {
+  id    String @id @default(auto()) @map("_id") @db.ObjectId
+  name  String @unique              // e.g. "RM_ROUND_ROBIN"
+  value Int    @default(0)
+  @@map("assignment_meta")
+}
+
+model User {
+  id        String    @id @default(auto()) @map("_id") @db.ObjectId
+  archived  Boolean   @default(false)
+  name      String
+  email     String
+  role      UserRoles
+  gender    Gender?
+  phone     String?
+  status    Status     @default(ACTIVE)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  // Optional: diagnostics if you keep it
+  lastAssignedAt DateTime?
+
+  // relation
+  assignedLeads IpkLeadd[] @relation("UserAssignedRm")
+
+  @@unique([email])
+  @@index([role, status, archived])
+  @@index([createdAt])
+  @@map("user")
+}
+
+model IpkLeadd {
+  id        String    @id @default(auto()) @map("_id") @db.ObjectId
+
+  firstName String?
+  lastName  String?
+  name      String?
+  email     String?
+  phone     String
+
+  leadCode  String?   // partial unique in DB (create outside Prisma if you prefer)
+
+  gender    Gender?
+  age       Int?
+  location  String?
+
+  referralCode String?
+  leadSource   String
+
+  profession      Profession?
+  companyName     String?
+  designation     String?
+  product         Product?
+  investmentRange String?
+  sipAmount       Int?
+  clientTypes     String?
+
+  remark    String?
+
+  assignedRmId String? @db.ObjectId
+  assignedRm   User?   @relation("UserAssignedRm", fields: [assignedRmId], references: [id])
+  assignedRM   String? // denormalized display name
+
+  status    LeadStatus @default(PENDING)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  archived  Boolean    @default(false)
+
+  revisitCount  Int        @default(0)
+  lastSeenAt    DateTime?
+  firstSeenAt   DateTime   @default(now())
+
+  @@index([leadSource])
+  @@index([assignedRmId])
+  @@index([createdAt])
+  @@index([status])
+  @@map("ipk_leadd")
+}

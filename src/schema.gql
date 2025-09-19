@@ -1,0 +1,153 @@
+# ------------------------------------------------------
+# THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+# ------------------------------------------------------
+
+input CreateIpkLeaddInput {
+  age: Float
+  clientTypes: String
+  companyName: String
+  designation: String
+  email: String
+  firstName: String
+  gender: String
+  investmentRange: String
+  lastName: String
+  leadSource: String!
+  location: String
+  name: String
+  phone: String!
+  product: String
+  profession: String
+  referralCode: String
+  remark: String
+  sipAmount: Float
+}
+
+input CreateUserInput {
+  archived: Boolean! = false
+  email: String!
+  gender: Gender
+  name: String!
+  phone: String
+  role: UserRoles!
+  status: Status! = ACTIVE
+}
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
+
+enum Gender {
+  FEMALE
+  MALE
+  OTHER
+}
+
+type IpkLeaddEntity {
+  age: Int
+  archived: Boolean!
+  assignedRM: String
+  assignedRmId: ID
+  clientTypes: String
+  companyName: String
+  createdAt: DateTime!
+  designation: String
+  email: String
+  firstName: String
+  gender: String
+  id: ID!
+  investmentRange: String
+  lastName: String
+  leadCode: String
+  leadSource: String!
+  location: String
+  name: String
+  phone: String!
+  product: String
+  profession: String
+  referralCode: String
+  remark: String
+  sipAmount: Int
+  status: LeadStatus!
+  updatedAt: DateTime!
+}
+
+input LeadListArgs {
+  archived: Boolean
+  page: Int = 1
+  pageSize: Int = 10
+  search: String
+  status: LeadStatus
+}
+
+type LeadPage {
+  items: [IpkLeaddEntity!]!
+  page: Int!
+  pageSize: Int!
+  total: Int!
+}
+
+enum LeadStatus {
+  ASSIGNED
+  CLOSED
+  ON_HOLD
+  OPEN
+  PENDING
+}
+
+type Mutation {
+  assignLead(id: ID!): IpkLeaddEntity!
+  assignLeads(ids: [ID!]!): [IpkLeaddEntity!]!
+  createIpkLeadd(input: CreateIpkLeaddInput!): IpkLeaddEntity!
+  createUser(input: CreateUserInput!): UserEntity!
+  removeUser(id: ID!): UserEntity!
+  updateUser(id: ID!, input: UpdateUserDto!): UserEntity!
+}
+
+type Query {
+  getActiveUsers: [UserEntity!]!
+  getUser(id: ID!, withLeads: Boolean! = false): UserEntity
+  getUsers(withLeads: Boolean! = false): [UserEntity!]!
+  ipkLeadds: [IpkLeaddEntity!]!
+  leads(args: LeadListArgs!): LeadPage!
+  leadsOpen: [IpkLeaddEntity!]!
+}
+
+enum Status {
+  ACTIVE
+  INACTIVE
+}
+
+input UpdateUserDto {
+  active: Boolean
+  archived: Boolean
+  email: String
+  gender: Gender
+  name: String
+  phone: String
+  role: UserRoles
+  status: Status
+}
+
+type UserEntity {
+  archived: Boolean
+  assignedLeads: [IpkLeaddEntity]
+  createdAt: DateTime
+  email: String!
+  gender: String
+  id: ID!
+  lastAssignedAt: DateTime
+  name: String!
+  phone: String
+  role: String!
+  status: String!
+  updatedAt: DateTime
+}
+
+enum UserRoles {
+  ADMIN
+  MARKETING
+  RM
+  STAFF
+}

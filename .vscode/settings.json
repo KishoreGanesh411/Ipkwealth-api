@@ -1,5 +1,13 @@
 {
-    "cSpell.words": [
-        "Leadd"
-    ]
+  "cSpell.words": ["Leadd"],
+
+  // Auto format with Prettier
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+
+  // Force LF
+  "files.eol": "\n",
+
+  // Optional: format when pasting
+  "editor.formatOnPaste": true
 }

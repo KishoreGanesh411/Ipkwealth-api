@@ -67,6 +67,12 @@ export class IpkLeaddEntity {
   clientTypes?: string | null;
 
   @Field(() => String, { nullable: true })
+  phoneNormalized?: string | null;
+
+  @Field(() => Int, { nullable: true })
+  reenterCount?: number | null;
+
+  @Field(() => String, { nullable: true })
   remark?: string | null;
 
   @Field(() => ID, { nullable: true })
@@ -79,6 +85,12 @@ export class IpkLeaddEntity {
   status!: LeadStatus;
 
   @Field(() => GraphQLISODateTime)
+  approachAt?: Date | null;
+
+  @Field(() => [String], { nullable: true })
+  clientQa?: string[] | null;
+
+  @Field(() => GraphQLISODateTime)
   createdAt!: Date;
 
   @Field(() => GraphQLISODateTime)
@@ -86,4 +98,10 @@ export class IpkLeaddEntity {
 
   @Field(() => Boolean)
   archived!: boolean;
+
+  @Field(() => GraphQLISODateTime, { nullable: true })
+  firstSeenAt?: Date | null;
+
+  @Field(() => GraphQLISODateTime, { nullable: true })
+  lastSeenAt?: Date | null;
 }

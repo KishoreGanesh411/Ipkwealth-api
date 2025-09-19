@@ -1,5 +1,5 @@
-// src/app/lead/dto/create-lead.input.ts
-import { Field, InputType } from '@nestjs/graphql';
+import { Field, GraphQLISODateTime, InputType } from '@nestjs/graphql';
+import { GraphQLJSON } from 'graphql-scalars';
 
 @InputType()
 export class CreateIpkLeaddInput {
@@ -7,6 +7,7 @@ export class CreateIpkLeaddInput {
   @Field({ nullable: true }) lastName?: string;
   @Field({ nullable: true }) name?: string;
   @Field({ nullable: true }) email?: string;
+
   @Field() phone!: string;
   @Field() leadSource!: string;
 
@@ -24,4 +25,13 @@ export class CreateIpkLeaddInput {
   @Field({ nullable: true }) sipAmount?: number;
   @Field({ nullable: true }) clientTypes?: string;
   @Field({ nullable: true }) remark?: string;
+
+  @Field(() => GraphQLISODateTime, { nullable: true })
+  approachAt?: Date | null;
+
+  @Field(() => GraphQLJSON, { nullable: true })
+  clientQa?: any | null;
 }
+
+@InputType()
+export class BulkLeadRowInput extends CreateIpkLeaddInput { }

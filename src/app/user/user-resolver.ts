@@ -12,8 +12,8 @@ import { UserEntity } from './entities/user.entity';
 import { CreateUserInput } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { PrismaService } from 'prisma/prisma.service';
-import { IpkLeaddEntity } from '../lead/entities/ipk-leadd.model'; // ⬅️ ensure this path & filename
-import { LeadStatus as GqlLeadStatus } from '../lead/enums/ipk-leadd.enum'; // ⬅️ ensure this path & filename
+import { IpkLeaddEntity } from '../lead/entities/ipk-leadd.model';
+import { LeadStatus as GqlLeadStatus } from '../lead/enums/ipk-leadd.enum';
 import { $Enums } from '@prisma/client';
 
 function toGqlLeadStatus(s: $Enums.LeadStatus): GqlLeadStatus {
@@ -29,7 +29,6 @@ function toGqlLeadStatus(s: $Enums.LeadStatus): GqlLeadStatus {
     case 'OPEN':
       return GqlLeadStatus.OPEN;
     default:
-      // Future-proof fallback if Prisma enum adds values later
       return s as unknown as GqlLeadStatus;
   }
 }
@@ -39,7 +38,7 @@ export class UserResolver {
   constructor(
     private readonly users: UserApiService,
     private readonly prisma: PrismaService,
-  ) {}
+  ) { }
 
   /* ----------------------------- CREATE ----------------------------- */
   @Mutation(() => UserEntity)
@@ -123,8 +122,15 @@ export class UserResolver {
       sipAmount: r.sipAmount ?? null,
       clientTypes: r.clientTypes ?? null,
       remark: r.remark ?? null,
+
       assignedRmId: r.assignedRmId ?? null,
       assignedRM: r.assignedRM ?? null,
+
+      // NEW: expose these so other UIs that reuse this resolver also see them
+      firstSeenAt: r.firstSeenAt ?? null,
+      lastSeenAt: r.lastSeenAt ?? null,
+      reenterCount: r.reenterCount ?? 0,
+
       status: toGqlLeadStatus(r.status),
       createdAt: r.createdAt,
       updatedAt: r.updatedAt,

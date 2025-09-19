@@ -1,13 +1,14 @@
 import { Args, ID, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { IpkLeaddService } from './ipk-leadd.service';
 import { IpkLeaddEntity } from './entities/ipk-leadd.model';
-import { CreateIpkLeaddInput } from './dto/create-lead.input';
+import { BulkLeadRowInput, CreateIpkLeaddInput } from './dto/create-lead.input';
 import { LeadListArgs } from './dto/lead-list.args';
 import { LeadPage } from './entities/lead-page.model';
+import { BulkImportResult } from './entities/bulk-result.model';
 
 @Resolver(() => IpkLeaddEntity)
 export class IpkLeaddResolver {
-  constructor(private readonly service: IpkLeaddService) {}
+  constructor(private readonly service: IpkLeaddService) { }
 
   @Mutation(() => IpkLeaddEntity, { name: 'createIpkLeadd' })
   createIpkLeadd(@Args('input') input: CreateIpkLeaddInput) {
@@ -38,12 +39,11 @@ export class IpkLeaddResolver {
   leads(@Args('args', { type: () => LeadListArgs }) args: LeadListArgs) {
     return this.service.list(args);
   }
-  // @Query(() => [IpkLeaddEntity], { name: 'ipkLeadds' })
-  // ipkLeadds() {
-  //   return this.service.list();
-  // }
-  // @Query(() => IpkLeaddEntity, { name: 'ipkLeadd' })
-  // ipkLeadd(@Args('id', { type: () => ID }) id: string) {
-  //   return this.service.findOne(id);
-  // }
+  @Mutation(() => BulkImportResult, { name: 'createLeadsBulk' })
+  createLeadsBulk(
+    @Args('rows', { type: () => [BulkLeadRowInput] })
+    rows: CreateIpkLeaddInput[],
+  ) {
+    return this.service.createLeadsBulk(rows);
+  }
 }

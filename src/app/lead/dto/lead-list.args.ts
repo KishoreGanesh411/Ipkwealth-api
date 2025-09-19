@@ -19,4 +19,10 @@ export class LeadListArgs {
 
   @Field(() => Int, { nullable: true, defaultValue: 10 })
   pageSize?: number;
+
+  @Field(() => Boolean, { nullable: true })
+  dormantOnly?: boolean;
+
+  @Field(() => Int, { nullable: true })
+  dormantDays?: number | null;
 }

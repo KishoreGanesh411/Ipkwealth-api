@@ -141,6 +141,10 @@ model IpkLeadd {
   revisitCount  Int        @default(0)
   lastSeenAt    DateTime?
   firstSeenAt   DateTime   @default(now())
+  phoneNormalized String?        // NEW: digits-only phone cache
+  reenterCount    Int     @default(0)  // NEW: how many times the same person re-entered
+  approachAt       DateTime?     // when the marketer approached / when row says "created_time" bulk register time xlxor csv 
+  clientQa         Json?         // e.g., ["Q1/A1", "Q2/A2"] or [{q, a}]
 
   @@index([leadSource])
   @@index([assignedRmId])

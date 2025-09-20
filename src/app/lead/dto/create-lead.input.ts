@@ -29,9 +29,14 @@ export class CreateIpkLeaddInput {
   @Field(() => GraphQLISODateTime, { nullable: true })
   approachAt?: Date | null;
 
-  @Field(() => GraphQLJSON, { nullable: true })
-  clientQa?: any | null;
+  @Field(() => [ClientQaInput], { nullable: true })
+  clientQa?: ClientQaInput[];
 }
 
+@InputType()
+export class ClientQaInput {
+  @Field() question!: string;
+  @Field() answer!: string;
+}
 @InputType()
 export class BulkLeadRowInput extends CreateIpkLeaddInput { }

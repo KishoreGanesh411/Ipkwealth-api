@@ -124,8 +124,8 @@ export class IpkLeaddService {
         reenterCount: 0,
         firstSeenAt: new Date(),
         lastSeenAt: new Date(),
-        approachAt: null,
-        clientQa: null,
+        approachAt: approachAt ?? null,
+        clientQa: clientQa ? (clientQa as any) : null,
       },
       include: { assignedRm: true },
     });

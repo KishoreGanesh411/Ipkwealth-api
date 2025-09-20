@@ -1,13 +1,52 @@
 {
-  "cSpell.words": ["Leadd"],
-
+  "cSpell.words": [
+    "Leadd"
+  ],
   // Auto format with Prettier
   "editor.formatOnSave": true,
   "editor.defaultFormatter": "esbenp.prettier-vscode",
-
   // Force LF
   "files.eol": "\n",
-
   // Optional: format when pasting
-  "editor.formatOnPaste": true
+  "editor.formatOnPaste": true,
+  "filetree-pro.exclude": [
+    "**/node_modules/**",
+    "**/.git/**",
+    "**/.husky/**",
+    "**/.vscode/**",
+    "**/.idea/**",
+    "**/.history/**",
+    "**/.cache/**",
+    "**/.eslintcache",
+    "**/.pnpm-store/**",
+    "**/.parcel-cache/**",
+    "**/.turbo/**",
+    "**/.vite/**",
+    "**/.next/**",
+    "**/.swc/**",
+    "**/dist/**",
+    "**/build/**",
+    "**/coverage/**",
+    "**/*.log",
+    "**/*.tmp",
+    "**/*.tsbuildinfo",
+    // assets
+    "**/*.png",
+    "**/*.jpg",
+    "**/*.jpeg",
+    "**/*.gif",
+    "**/*.svg",
+    // hide whole public folder
+    "public",
+    "public/**",
+    "**/public/**",
+    // hide src/icons completely (several patterns to cover how the ext resolves)
+    "src/icons",
+    "src/icons/**",
+    "**/src/icons/**",
+    "**/icons/**",
+    // prisma migrations (optional)
+    "**/prisma/migrations/**"
+  ],
+  "filetree-pro.showIcons": true
 }

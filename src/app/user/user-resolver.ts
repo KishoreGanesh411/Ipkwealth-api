@@ -6,6 +6,7 @@ import {
   ID,
   ResolveField,
   Parent,
+  Context,
 } from '@nestjs/graphql';
 import { UserApiService } from './user-api.service';
 import { UserEntity } from './entities/user.entity';
@@ -15,6 +16,11 @@ import { PrismaService } from 'prisma/prisma.service';
 import { IpkLeaddEntity } from '../lead/entities/ipk-leadd.model';
 import { LeadStatus as GqlLeadStatus } from '../lead/enums/ipk-leadd.enum';
 import { $Enums } from '@prisma/client';
+import { UseGuards } from '@nestjs/common';
+import { GqlAuthGuard } from '../auth/gql-auth.guard';
+import { CurrentUser } from '../auth/current-user.decorator';
+// import { FirebaseAuthGuard } from '../auth/firebase-auth.guard';
+// import { RolesGuard } from '../auth/roles.guard';
 
 function toGqlLeadStatus(s: $Enums.LeadStatus): GqlLeadStatus {
   switch (s) {
@@ -40,6 +46,11 @@ export class UserResolver {
     private readonly prisma: PrismaService,
   ) { }
 
+  @UseGuards(GqlAuthGuard)
+  @Query(() => UserEntity) // adjust to your GraphQL type
+  me(@CurrentUser() user: any) {
+    return user;
+  }
   /* ----------------------------- CREATE ----------------------------- */
   @Mutation(() => UserEntity)
   async createUser(@Args('input') input: CreateUserInput) {
@@ -137,4 +148,10 @@ export class UserResolver {
       archived: r.archived,
     }));
   }
+  // @Query(() => UserEntity)
+  // @UseGuards(FirebaseAuthGuard, RolesGuard)
+  // async currentUser(@Context('req') req) {
+  //   const dbUser = req.user.dbUser;
+  //   return dbUser;
+  // }
 }

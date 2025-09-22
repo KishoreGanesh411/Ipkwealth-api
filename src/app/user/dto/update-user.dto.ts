@@ -44,4 +44,7 @@ export class UpdateUserDto extends PartialType(CreateUserInput) {
   @Field({ nullable: true })
   @IsOptional()
   archived?: boolean;
+  @Field({ nullable: true })
+  @IsOptional()
+  firebaseUid?: string;
 }

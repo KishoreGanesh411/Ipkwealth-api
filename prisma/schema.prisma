@@ -83,6 +83,7 @@ model User {
   name      String
   email     String
   role      UserRoles
+  firebaseUid   String?
   gender    Gender?
   phone     String?
   status    Status     @default(ACTIVE)

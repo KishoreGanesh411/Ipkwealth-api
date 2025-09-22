@@ -9,7 +9,7 @@ type ActiveDto = { active: boolean };
 
 @Injectable()
 export class UserApiService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   /* ----------------------------- CREATE ----------------------------- */
   async createUser(dto: CreateUserInput): Promise<UserEntity> {
@@ -39,6 +39,7 @@ export class UserApiService {
         archived: dto.archived,
         role: dto.role ? { set: dto.role } : undefined,
         status: dto.status ? { set: dto.status } : undefined,
+        firebaseUid: dto.firebaseUid,
       },
     });
     return user as unknown as UserEntity;
@@ -132,4 +133,10 @@ export class UserApiService {
     });
     return user as unknown as UserEntity;
   }
+  // async getUserByFirebaseUid(firebaseUid: string): Promise<UserEntity | null> {
+  //   const user = await this.prisma.user.findFirst({
+  //     where: { firebaseUid, archived: false },
+  //   });
+  //   return user as unknown as UserEntity | null;
+  // }
 }

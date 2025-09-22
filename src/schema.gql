@@ -158,6 +158,7 @@ type Query {
   ipkLeadds: [IpkLeaddEntity!]!
   leads(args: LeadListArgs!): LeadPage!
   leadsOpen: [IpkLeaddEntity!]!
+  me: UserEntity!
 }
 
 enum Status {
@@ -169,6 +170,7 @@ input UpdateUserDto {
   active: Boolean
   archived: Boolean
   email: String
+  firebaseUid: String
   gender: Gender
   name: String
   phone: String
@@ -181,6 +183,7 @@ type UserEntity {
   assignedLeads: [IpkLeaddEntity]
   createdAt: DateTime
   email: String!
+  firebaseUid: String!
   gender: String
   id: ID!
   lastAssignedAt: DateTime

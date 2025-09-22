@@ -15,6 +15,9 @@ export class UserEntity {
   @Field(() => String)
   role!: string;
 
+  @Field(() => String)
+  firebaseUid!: string;
+
   @Field(() => String, { nullable: true })
   gender?: string | null;
 

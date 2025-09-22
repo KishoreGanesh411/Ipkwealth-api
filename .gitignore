@@ -86,3 +86,7 @@ prisma/migrations/*/steps.json
 # Vite / React specific
 # ────────────────────────────────
 vite.svg
+firebase-service-account.json
+.env
+prisma/.env
+serviceAccount.json

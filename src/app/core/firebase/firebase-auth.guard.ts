@@ -20,7 +20,7 @@ export interface FirebaseAuthRequest extends Request {
 export class FirebaseAuthGuard implements CanActivate {
   constructor(
     @Inject(FIREBASE_ADMIN) protected readonly firebase: typeof admin,
-  ) {}
+  ) { }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = this.getRequest(context);

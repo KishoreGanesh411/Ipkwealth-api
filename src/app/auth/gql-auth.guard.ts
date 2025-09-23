@@ -37,13 +37,17 @@ export class GqlAuthGuard extends FirebaseAuthGuard {
     const firebaseUser = request.firebaseUser;
 
     if (!firebaseUser) {
-      throw new UnauthorizedException('Firebase authentication missing user payload');
+      throw new UnauthorizedException(
+        'Firebase authentication missing user payload',
+      );
     }
 
     const user = await this.users.upsertFromFirebase(firebaseUser);
 
     if (!user || user.archived) {
-      throw new UnauthorizedException('User is not allowed to access this resource');
+      throw new UnauthorizedException(
+        'User is not allowed to access this resource',
+      );
     }
 
     request.dbUser = user;

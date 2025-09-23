@@ -1,4 +1,4 @@
-import {
+﻿import {
   Resolver,
   Query,
   Mutation,
@@ -6,7 +6,6 @@ import {
   ID,
   ResolveField,
   Parent,
-  Context,
 } from '@nestjs/graphql';
 import { UserApiService } from './user-api.service';
 import { UserEntity } from './entities/user.entity';
@@ -47,9 +46,13 @@ export class UserResolver {
   ) { }
 
   @UseGuards(GqlAuthGuard)
-  @Query(() => UserEntity) // adjust to your GraphQL type
-  me(@CurrentUser() user: any) {
-    return user;
+  @Query(() => UserEntity)
+  async me(@CurrentUser() user: UserEntity) {
+    if (!user?.firebaseUid) {
+      return user;
+    }
+    const fresh = await this.users.findByFirebaseUid(user.firebaseUid);
+    return fresh ?? user;
   }
   /* ----------------------------- CREATE ----------------------------- */
   @Mutation(() => UserEntity)
@@ -155,3 +158,6 @@ export class UserResolver {
   //   return dbUser;
   // }
 }
+
+
+

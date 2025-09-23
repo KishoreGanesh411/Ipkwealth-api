@@ -1,4 +1,4 @@
-generator client {
+﻿generator client {
   provider      = "prisma-client-js"
   binaryTargets = ["native", "darwin", "debian-openssl-1.1.x"]
 }
@@ -83,7 +83,7 @@ model User {
   name      String
   email     String
   role      UserRoles
-  firebaseUid   String?
+  firebaseUid   String? @unique
   gender    Gender?
   phone     String?
   status    Status     @default(ACTIVE)
@@ -153,3 +153,4 @@ model IpkLeadd {
   @@index([status])
   @@map("ipk_leadd")
 }
+

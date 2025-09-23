@@ -1,12 +1,13 @@
-// src/app/auth/auth.module.ts
-import { Module } from '@nestjs/common';
+﻿import { forwardRef, Module } from '@nestjs/common';
+import { PrismaAppModule } from 'prisma/prisma.module';
+import { FirebaseAuthGuard } from '../core/firebase/firebase-auth.guard';
 import { FirebaseModule } from '../core/firebase/firebase.module';
-import { PrismaAppModule } from 'prisma/prisma.module'; // whatever exports PrismaService
+import { UserModule } from '../user/user-api.module';
 import { GqlAuthGuard } from './gql-auth.guard';
 
 @Module({
-  imports: [FirebaseModule, PrismaAppModule],
-  providers: [GqlAuthGuard],
-  exports: [GqlAuthGuard], // so other modules can use the guard
+  imports: [FirebaseModule, PrismaAppModule, forwardRef(() => UserModule)],
+  providers: [FirebaseAuthGuard, GqlAuthGuard],
+  exports: [FirebaseAuthGuard, GqlAuthGuard],
 })
-export class AuthModule { }
+export class AuthModule {}

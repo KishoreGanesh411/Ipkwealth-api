@@ -1,15 +1,17 @@
-import { Injectable } from '@nestjs/common';
+﻿import { Injectable } from '@nestjs/common';
+import { Prisma, $Enums } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
+import { FirebaseAuthUser } from '../core/firebase/firebase.types';
+import { Status } from '../enums/common.enum';
 import { CreateUserInput } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserEntity } from './entities/user.entity';
-import { Status } from '../enums/common.enum';
 
 type ActiveDto = { active: boolean };
 
 @Injectable()
 export class UserApiService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   /* ----------------------------- CREATE ----------------------------- */
   async createUser(dto: CreateUserInput): Promise<UserEntity> {
@@ -21,7 +23,7 @@ export class UserApiService {
         role: dto.role,
         gender: dto.gender,
         phone: dto.phone,
-        status: dto.status ?? 'ACTIVE',
+        status: dto.status ?? Status.ACTIVE,
       },
     });
     return user as unknown as UserEntity;
@@ -78,7 +80,7 @@ export class UserApiService {
             assignedRM: true,
           },
           orderBy: { createdAt: 'desc' },
-          take: 100, // safety cap; tune per page
+          take: 100,
         },
       },
     });
@@ -115,7 +117,7 @@ export class UserApiService {
   /* -------------------------- LIST ACTIVE ONLY ---------------------- */
   async getActiveUsers(): Promise<UserEntity[]> {
     const users = await this.prisma.user.findMany({
-      where: { archived: false, status: 'ACTIVE' as Status },
+      where: { archived: false, status: Status.ACTIVE },
       orderBy: { name: 'asc' },
     });
     return users as unknown as UserEntity[];
@@ -126,17 +128,86 @@ export class UserApiService {
     const user = await this.prisma.user.update({
       where: { id },
       data: {
-        status: {
-          set: (patch.active ? 'ACTIVE' : 'INACTIVE') as Status,
-        },
+        status: patch.active ? Status.ACTIVE : Status.INACTIVE,
       },
     });
     return user as unknown as UserEntity;
   }
-  // async getUserByFirebaseUid(firebaseUid: string): Promise<UserEntity | null> {
-  //   const user = await this.prisma.user.findFirst({
-  //     where: { firebaseUid, archived: false },
-  //   });
-  //   return user as unknown as UserEntity | null;
-  // }
+
+  /* ---------------------------- FIREBASE HOOKS ---------------------- */
+  async findByFirebaseUid(firebaseUid: string): Promise<UserEntity | null> {
+    const user = await this.prisma.user.findFirst({
+      where: { firebaseUid, archived: false },
+    });
+    return user as unknown as UserEntity | null;
+  }
+
+  async upsertFromFirebase(payload: FirebaseAuthUser): Promise<UserEntity> {
+    const placeholderEmail = `${payload.firebaseUid}@firebase.local`;
+
+    const filters: Prisma.UserWhereInput[] = [{ firebaseUid: payload.firebaseUid }];
+    if (payload.email) {
+      filters.push({ email: payload.email });
+    }
+
+    const existing = await this.prisma.user.findFirst({
+      where: { OR: filters },
+    });
+
+    const role = this.pickRole(payload.claims, existing?.role);
+    const resolvedEmail = payload.email ?? existing?.email ?? placeholderEmail;
+    const resolvedName = payload.name ?? existing?.name ?? resolvedEmail;
+
+    if (existing) {
+      const user = await this.prisma.user.update({
+        where: { id: existing.id },
+        data: {
+          firebaseUid: payload.firebaseUid,
+          email: resolvedEmail,
+          name: resolvedName,
+          role,
+          archived: false,
+          status: Status.ACTIVE,
+        },
+      });
+      return user as unknown as UserEntity;
+    }
+
+    const created = await this.prisma.user.create({
+      data: {
+        firebaseUid: payload.firebaseUid,
+        email: resolvedEmail,
+        name: resolvedName,
+        role,
+        archived: false,
+        status: Status.ACTIVE,
+      },
+    });
+
+    return created as unknown as UserEntity;
+  }
+
+  private pickRole(
+    claims: FirebaseAuthUser['claims'],
+    fallback?: $Enums.UserRoles | null,
+  ): $Enums.UserRoles {
+    const candidate =
+      (claims.role as string | undefined) ??
+      (Array.isArray(claims.roles)
+        ? (claims.roles[0] as string | undefined)
+        : undefined);
+
+    if (
+      candidate &&
+      (Object.values($Enums.UserRoles) as string[]).includes(candidate)
+    ) {
+      return candidate as $Enums.UserRoles;
+    }
+
+    if (fallback) {
+      return fallback;
+    }
+
+    return $Enums.UserRoles.STAFF;
+  }
 }

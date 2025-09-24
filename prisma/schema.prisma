@@ -1,4 +1,4 @@
-﻿generator client {
+generator client {
   provider      = "prisma-client-js"
   binaryTargets = ["native", "darwin", "debian-openssl-1.1.x"]
 }
@@ -7,7 +7,6 @@ datasource db {
   provider = "mongodb"
   url      = env("DATABASE_URL")
 }
-
 enum UserRoles {
   ADMIN
   RM

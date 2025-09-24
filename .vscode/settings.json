@@ -7,6 +7,8 @@
   "editor.defaultFormatter": "esbenp.prettier-vscode",
   // Force LF
   "files.eol": "\n",
+  // Prisma.prisma files as UTF‑8 (no BOM) to avoid repeats.
+  "files.encoding": "utf8",
   // Optional: format when pasting
   "editor.formatOnPaste": true,
   "filetree-pro.exclude": [

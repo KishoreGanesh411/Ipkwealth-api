@@ -1,4 +1,4 @@
-import { ObjectType, Field, ID, GraphQLISODateTime } from '@nestjs/graphql';
+import { Field, GraphQLISODateTime, ID, ObjectType } from '@nestjs/graphql';
 import { IpkLeaddEntity } from '../../lead/entities/ipk-leadd.model';
 
 @ObjectType()
@@ -12,11 +12,13 @@ export class UserEntity {
   @Field(() => String)
   email!: string;
 
+  // Keep as string if you haven't wired GraphQL enums for these yet
   @Field(() => String)
   role!: string;
 
-  @Field(() => String)
-  firebaseUid!: string;
+  // 🔧 MAKE THIS NULLABLE to avoid "Cannot return null for non-nullable field"
+  @Field(() => String, { nullable: true })
+  firebaseUid?: string | null;
 
   @Field(() => String, { nullable: true })
   gender?: string | null;

@@ -63,6 +63,7 @@ input CreateIpkLeaddInput {
 input CreateUserInput {
   archived: Boolean! = false
   email: String!
+  firebaseUid: String
   gender: Gender
   name: String!
   phone: String
@@ -183,7 +184,7 @@ type UserEntity {
   assignedLeads: [IpkLeaddEntity]
   createdAt: DateTime
   email: String!
-  firebaseUid: String!
+  firebaseUid: String
   gender: String
   id: ID!
   lastAssignedAt: DateTime

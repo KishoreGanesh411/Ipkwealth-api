@@ -1,5 +1,5 @@
 ﻿import { Injectable } from '@nestjs/common';
-import { Prisma, $Enums } from '@prisma/client';
+import { $Enums, Prisma } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
 import { FirebaseAuthUser } from '../core/firebase/firebase.types';
 import { Status } from '../enums/common.enum';
@@ -11,7 +11,7 @@ type ActiveDto = { active: boolean };
 
 @Injectable()
 export class UserApiService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   /* ----------------------------- CREATE ----------------------------- */
   async createUser(dto: CreateUserInput): Promise<UserEntity> {
@@ -24,6 +24,8 @@ export class UserApiService {
         gender: dto.gender,
         phone: dto.phone,
         status: dto.status ?? Status.ACTIVE,
+        // If you added dto.firebaseUid in the DTO, you can persist it:
+        firebaseUid: dto.firebaseUid ?? null,
       },
     });
     return user as unknown as UserEntity;
@@ -41,7 +43,7 @@ export class UserApiService {
         archived: dto.archived,
         role: dto.role ? { set: dto.role } : undefined,
         status: dto.status ? { set: dto.status } : undefined,
-        firebaseUid: dto.firebaseUid,
+        firebaseUid: dto.firebaseUid, // remains optional
       },
     });
     return user as unknown as UserEntity;
@@ -193,20 +195,13 @@ export class UserApiService {
   ): $Enums.UserRoles {
     const candidate =
       (claims.role as string | undefined) ??
-      (Array.isArray(claims.roles)
-        ? (claims.roles[0] as string | undefined)
-        : undefined);
+      (Array.isArray(claims.roles) ? (claims.roles[0] as string | undefined) : undefined);
 
-    if (
-      candidate &&
-      (Object.values($Enums.UserRoles) as string[]).includes(candidate)
-    ) {
+    if (candidate && (Object.values($Enums.UserRoles) as string[]).includes(candidate)) {
       return candidate as $Enums.UserRoles;
     }
 
-    if (fallback) {
-      return fallback;
-    }
+    if (fallback) return fallback;
 
     return $Enums.UserRoles.STAFF;
   }

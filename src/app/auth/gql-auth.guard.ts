@@ -17,9 +17,9 @@ import { UserApiService } from '../user/user-api.service';
 export class GqlAuthGuard extends FirebaseAuthGuard {
   constructor(
     @Inject(FIREBASE_ADMIN) firebase: typeof admin,
-    private readonly users: UserApiService,
+    users: UserApiService,
   ) {
-    super(firebase);
+    super(firebase, users);
   }
 
   protected getRequest(context: ExecutionContext): FirebaseAuthRequest {

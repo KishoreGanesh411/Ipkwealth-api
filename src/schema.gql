@@ -63,12 +63,18 @@ input CreateIpkLeaddInput {
 input CreateUserInput {
   archived: Boolean! = false
   email: String!
-  firebaseUid: String
   gender: Gender
   name: String!
+  password: String!
   phone: String
   role: UserRoles!
   status: Status! = ACTIVE
+}
+
+type CreateUserPayload {
+  message: String
+  success: Boolean!
+  user: UserEntity
 }
 
 """
@@ -147,7 +153,8 @@ type Mutation {
   assignLeads(ids: [ID!]!): [IpkLeaddEntity!]!
   createIpkLeadd(input: CreateIpkLeaddInput!): IpkLeaddEntity!
   createLeadsBulk(rows: [BulkLeadRowInput!]!): BulkImportResult!
-  createUser(input: CreateUserInput!): UserEntity!
+  createUser(input: CreateUserInput!): CreateUserPayload!
+  generatePasswordResetLink(email: String!): String!
   removeUser(id: ID!): UserEntity!
   updateUser(id: ID!, input: UpdateUserDto!): UserEntity!
 }
@@ -174,25 +181,26 @@ input UpdateUserDto {
   firebaseUid: String
   gender: Gender
   name: String
+  password: String
   phone: String
   role: UserRoles
   status: Status
 }
 
 type UserEntity {
-  archived: Boolean
+  archived: Boolean!
   assignedLeads: [IpkLeaddEntity]
-  createdAt: DateTime
+  createdAt: DateTime!
   email: String!
-  firebaseUid: String
-  gender: String
+  firebaseUid: String!
+  gender: Gender
   id: ID!
   lastAssignedAt: DateTime
   name: String!
   phone: String
-  role: String!
-  status: String!
-  updatedAt: DateTime
+  role: UserRoles!
+  status: Status!
+  updatedAt: DateTime!
 }
 
 enum UserRoles {

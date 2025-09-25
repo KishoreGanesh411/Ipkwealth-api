@@ -80,9 +80,10 @@ model User {
   id        String    @id @default(auto()) @map("_id") @db.ObjectId
   archived  Boolean   @default(false)
   name      String
-  email     String
+  email     String   @unique
   role      UserRoles
-  firebaseUid   String? @unique
+  firebaseUid String   @unique
+  passwordHash String?
   gender    Gender?
   phone     String?
   status    Status     @default(ACTIVE)
@@ -95,7 +96,6 @@ model User {
   // relation
   assignedLeads IpkLeadd[] @relation("UserAssignedRm")
 
-  @@unique([email])
   @@index([role, status, archived])
   @@index([createdAt])
   @@map("user")
@@ -152,4 +152,6 @@ model IpkLeadd {
   @@index([status])
   @@map("ipk_leadd")
 }
+
+
 

@@ -1,5 +1,13 @@
-﻿import { UseGuards } from '@nestjs/common';
-import { Args, ID, Mutation, Parent, Query, ResolveField, Resolver } from '@nestjs/graphql';
+import { HttpException, UseGuards } from '@nestjs/common';
+import {
+  Args,
+  ID,
+  Mutation,
+  Parent,
+  Query,
+  ResolveField,
+  Resolver,
+} from '@nestjs/graphql';
 import { $Enums } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
 import { CurrentUser } from '../auth/current-user.decorator';
@@ -8,7 +16,7 @@ import { IpkLeaddEntity } from '../lead/entities/ipk-leadd.model';
 import { LeadStatus as GqlLeadStatus } from '../lead/enums/ipk-leadd.enum';
 import { CreateUserInput } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { UserEntity } from './entities/user.entity';
+import { CreateUserPayload, UserEntity } from './entities/user.entity';
 import { UserApiService } from './user-api.service';
 
 function toGqlLeadStatus(s: $Enums.LeadStatus): GqlLeadStatus {
@@ -35,17 +43,43 @@ export class UserResolver {
     private readonly prisma: PrismaService,
   ) { }
 
-  // 🔐 This triggers Firebase verification + upsert; CurrentUser returns DB user
+  // ?? This triggers Firebase verification + upsert; CurrentUser returns DB user
   @UseGuards(FirebaseAuthGuard)
   @Query(() => UserEntity)
   async me(@CurrentUser() user: UserEntity) {
     return user;
   }
 
-  // Public admin create (add an admin-only guard if needed)
-  @Mutation(() => UserEntity)
-  async createUser(@Args('input') input: CreateUserInput) {
-    return this.users.createUser(input);
+  // TODO: add role guard for admin-only access
+  @Mutation(() => CreateUserPayload)
+  async createUser(@Args('input') input: CreateUserInput): Promise<CreateUserPayload> {
+    try {
+      return await this.users.createUser(input);
+    } catch (error) {
+      return {
+        success: false,
+        message: this.resolveErrorMessage(error, 'Failed to create user'),
+        user: null,
+      };
+    }
+  }
+
+  @Mutation(() => String)
+  async generatePasswordResetLink(
+    @Args('email', { type: () => String }) email: string,
+  ): Promise<string> {
+    try {
+      return await this.users.generatePasswordResetLink(email);
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      const message = this.resolveErrorMessage(
+        error,
+        'Unable to generate password reset link',
+      );
+      throw new Error(message);
+    }
   }
 
   @Query(() => [UserEntity])
@@ -124,5 +158,15 @@ export class UserResolver {
       updatedAt: r.updatedAt,
       archived: r.archived,
     }));
+  }
+
+  private resolveErrorMessage(error: unknown, fallback: string): string {
+    if (error instanceof HttpException) {
+      return error.message;
+    }
+    if (error instanceof Error && error.message) {
+      return error.message;
+    }
+    return fallback;
   }
 }

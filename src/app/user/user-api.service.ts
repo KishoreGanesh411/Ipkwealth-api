@@ -1,34 +1,99 @@
-﻿import { Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Inject,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { $Enums, Prisma } from '@prisma/client';
+import * as admin from 'firebase-admin';
+import { randomBytes } from 'crypto';
 import { PrismaService } from 'prisma/prisma.service';
+import { hashPassword } from '../auth/password.util';
+import { FIREBASE_ADMIN } from '../core/firebase/firebase-admin.provider';
 import { FirebaseAuthUser } from '../core/firebase/firebase.types';
-import { Status } from '../enums/common.enum';
 import { CreateUserInput } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { UserEntity } from './entities/user.entity';
+import { CreateUserPayload, UserEntity } from './entities/user.entity';
+import { Status as UserStatusEnum } from './enums/user.enums';
 
 type ActiveDto = { active: boolean };
 
 @Injectable()
 export class UserApiService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(FIREBASE_ADMIN) private readonly firebase: typeof admin,
+  ) { }
 
   /* ----------------------------- CREATE ----------------------------- */
-  async createUser(dto: CreateUserInput): Promise<UserEntity> {
-    const user = await this.prisma.user.create({
-      data: {
-        archived: false,
-        name: dto.name,
-        email: dto.email,
-        role: dto.role,
-        gender: dto.gender,
-        phone: dto.phone,
-        status: dto.status ?? Status.ACTIVE,
-        // If you added dto.firebaseUid in the DTO, you can persist it:
-        firebaseUid: dto.firebaseUid ?? null,
-      },
-    });
-    return user as unknown as UserEntity;
+  async createUser(input: CreateUserInput): Promise<CreateUserPayload> {
+    const email = this.normalizeEmail(input.email);
+    await this.assertEmailAvailable(email);
+
+    const displayName = input.name.trim();
+    let userRecord: admin.auth.UserRecord;
+
+    try {
+      userRecord = await this.firebase.auth().createUser({
+        email,
+        password: input.password,
+        displayName,
+        disabled: false,
+      });
+    } catch (error) {
+      this.handleFirebaseCreateError(error);
+    }
+
+    const firebaseUid = userRecord.uid;
+    const passwordHash = await hashPassword(input.password);
+    const status = input.status ?? UserStatusEnum.ACTIVE;
+    const archived = input.archived ?? false;
+
+    try {
+      const user = await this.prisma.user.create({
+        data: {
+          archived,
+          name: displayName,
+          email,
+          role: input.role,
+          gender: input.gender ?? null,
+          phone: this.normalizePhone(input.phone),
+          status,
+          firebaseUid,
+          passwordHash,
+        },
+      });
+
+      return {
+        success: true,
+        message: 'User created',
+        user: user as unknown as UserEntity,
+      };
+    } catch (error) {
+      await this.safeDeleteFirebaseUser(firebaseUid);
+      this.handlePrismaError(error);
+    }
+
+    throw new InternalServerErrorException('Failed to create user');
+  }
+
+  async generatePasswordResetLink(email: string): Promise<string> {
+    const normalizedEmail = this.normalizeEmail(email);
+    const user = await this.prisma.user.findUnique({ where: { email: normalizedEmail } });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    try {
+      return await this.firebase.auth().generatePasswordResetLink(normalizedEmail);
+    } catch (error) {
+      this.handleFirebaseResetError(error);
+    }
+
+    throw new InternalServerErrorException('Failed to generate password reset link');
   }
 
   /* ------------------------------ UPDATE ---------------------------- */
@@ -37,13 +102,14 @@ export class UserApiService {
       where: { id },
       data: {
         name: dto.name,
-        email: dto.email,
-        phone: dto.phone,
+        email: dto.email ? this.normalizeEmail(dto.email) : undefined,
+        phone:
+          dto.phone !== undefined ? this.normalizePhone(dto.phone) : undefined,
         gender: dto.gender,
         archived: dto.archived,
         role: dto.role ? { set: dto.role } : undefined,
         status: dto.status ? { set: dto.status } : undefined,
-        firebaseUid: dto.firebaseUid, // remains optional
+        firebaseUid: dto.firebaseUid,
       },
     });
     return user as unknown as UserEntity;
@@ -119,7 +185,7 @@ export class UserApiService {
   /* -------------------------- LIST ACTIVE ONLY ---------------------- */
   async getActiveUsers(): Promise<UserEntity[]> {
     const users = await this.prisma.user.findMany({
-      where: { archived: false, status: Status.ACTIVE },
+      where: { archived: false, status: UserStatusEnum.ACTIVE },
       orderBy: { name: 'asc' },
     });
     return users as unknown as UserEntity[];
@@ -130,7 +196,7 @@ export class UserApiService {
     const user = await this.prisma.user.update({
       where: { id },
       data: {
-        status: patch.active ? Status.ACTIVE : Status.INACTIVE,
+        status: patch.active ? UserStatusEnum.ACTIVE : UserStatusEnum.INACTIVE,
       },
     });
     return user as unknown as UserEntity;
@@ -149,7 +215,7 @@ export class UserApiService {
 
     const filters: Prisma.UserWhereInput[] = [{ firebaseUid: payload.firebaseUid }];
     if (payload.email) {
-      filters.push({ email: payload.email });
+      filters.push({ email: this.normalizeEmail(payload.email) });
     }
 
     const existing = await this.prisma.user.findFirst({
@@ -157,7 +223,9 @@ export class UserApiService {
     });
 
     const role = this.pickRole(payload.claims, existing?.role);
-    const resolvedEmail = payload.email ?? existing?.email ?? placeholderEmail;
+    const resolvedEmail = payload.email
+      ? this.normalizeEmail(payload.email)
+      : existing?.email ?? placeholderEmail;
     const resolvedName = payload.name ?? existing?.name ?? resolvedEmail;
 
     if (existing) {
@@ -169,11 +237,13 @@ export class UserApiService {
           name: resolvedName,
           role,
           archived: false,
-          status: Status.ACTIVE,
+          status: UserStatusEnum.ACTIVE,
         },
       });
       return user as unknown as UserEntity;
     }
+
+    const passwordHash = await hashPassword(randomBytes(32).toString('hex'));
 
     const created = await this.prisma.user.create({
       data: {
@@ -182,7 +252,8 @@ export class UserApiService {
         name: resolvedName,
         role,
         archived: false,
-        status: Status.ACTIVE,
+        status: UserStatusEnum.ACTIVE,
+        passwordHash,
       },
     });
 
@@ -204,5 +275,75 @@ export class UserApiService {
     if (fallback) return fallback;
 
     return $Enums.UserRoles.STAFF;
+  }
+
+  private normalizeEmail(email: string): string {
+    return email.trim().toLowerCase();
+  }
+
+  private normalizePhone(phone?: string | null): string | null {
+    if (!phone) return null;
+    const trimmed = phone.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+
+  private async assertEmailAvailable(email: string): Promise<void> {
+    const existing = await this.prisma.user.findUnique({ where: { email } });
+    if (existing) {
+      throw new ConflictException('A user with this email already exists');
+    }
+  }
+
+  private async safeDeleteFirebaseUser(firebaseUid: string): Promise<void> {
+    try {
+      await this.firebase.auth().deleteUser(firebaseUid);
+    } catch {
+      // Swallow cleanup failures; avoid hiding the original error.
+    }
+  }
+
+  private handlePrismaError(error: unknown): never {
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === 'P2002') {
+        throw new ConflictException('User already exists with the provided identifier');
+      }
+    }
+
+    throw new InternalServerErrorException('Failed to persist user');
+  }
+
+  private handleFirebaseCreateError(error: unknown): never {
+    const code = this.extractFirebaseErrorCode(error);
+    switch (code) {
+      case 'auth/email-already-exists':
+        throw new ConflictException('A Firebase user with this email already exists');
+      case 'auth/invalid-email':
+        throw new BadRequestException('Email address is invalid');
+      case 'auth/weak-password':
+      case 'auth/invalid-password':
+        throw new BadRequestException('Password does not meet Firebase requirements');
+      default:
+        throw new InternalServerErrorException('Failed to create Firebase user');
+    }
+  }
+
+  private handleFirebaseResetError(error: unknown): never {
+    const code = this.extractFirebaseErrorCode(error);
+    switch (code) {
+      case 'auth/invalid-email':
+        throw new BadRequestException('Email address is invalid');
+      case 'auth/user-not-found':
+        throw new NotFoundException('User not found in Firebase');
+      default:
+        throw new InternalServerErrorException('Failed to generate reset link');
+    }
+  }
+
+  private extractFirebaseErrorCode(error: unknown): string | undefined {
+    if (typeof error === 'object' && error && 'code' in error) {
+      const code = (error as { code?: string }).code;
+      return typeof code === 'string' ? code : undefined;
+    }
+    return undefined;
   }
 }

@@ -1,4 +1,6 @@
 import { Field, GraphQLISODateTime, ID, ObjectType } from '@nestjs/graphql';
+import { Gender } from '../../enums/common.enum';
+import { Status, UserRoles } from '../enums/user.enums';
 import { IpkLeaddEntity } from '../../lead/entities/ipk-leadd.model';
 
 @ObjectType()
@@ -12,35 +14,45 @@ export class UserEntity {
   @Field(() => String)
   email!: string;
 
-  // Keep as string if you haven't wired GraphQL enums for these yet
+  @Field(() => UserRoles)
+  role!: UserRoles;
+
   @Field(() => String)
-  role!: string;
+  firebaseUid!: string;
 
-  // 🔧 MAKE THIS NULLABLE to avoid "Cannot return null for non-nullable field"
-  @Field(() => String, { nullable: true })
-  firebaseUid?: string | null;
-
-  @Field(() => String, { nullable: true })
-  gender?: string | null;
+  @Field(() => Gender, { nullable: true })
+  gender?: Gender | null;
 
   @Field(() => String, { nullable: true })
   phone?: string | null;
 
-  @Field(() => String)
-  status!: string;
+  @Field(() => Status)
+  status!: Status;
 
-  @Field(() => Boolean, { nullable: true })
-  archived?: boolean;
+  @Field(() => Boolean)
+  archived!: boolean;
 
   @Field(() => GraphQLISODateTime, { nullable: true })
   lastAssignedAt?: Date | null;
 
-  @Field(() => GraphQLISODateTime, { nullable: true })
-  createdAt?: Date | null;
+  @Field(() => GraphQLISODateTime)
+  createdAt!: Date;
 
-  @Field(() => GraphQLISODateTime, { nullable: true })
-  updatedAt?: Date | null;
+  @Field(() => GraphQLISODateTime)
+  updatedAt!: Date;
 
   @Field(() => [IpkLeaddEntity], { nullable: 'itemsAndList' })
   assignedLeads?: IpkLeaddEntity[];
+}
+
+@ObjectType()
+export class CreateUserPayload {
+  @Field(() => Boolean)
+  success!: boolean;
+
+  @Field(() => String, { nullable: true })
+  message?: string | null;
+
+  @Field(() => UserEntity, { nullable: true })
+  user?: UserEntity | null;
 }

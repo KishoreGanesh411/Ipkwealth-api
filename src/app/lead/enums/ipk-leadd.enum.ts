@@ -50,3 +50,10 @@ export enum LeadEventType {
   BIO_UPDATED = 'BIO_UPDATED',
   HISTORY_SNAPSHOT = 'HISTORY_SNAPSHOT',
 }
+
+export enum InteractionChannel {
+  WHATSAPP = 'WHATSAPP',
+  CALL = 'CALL',
+  MEET = 'MEET',
+  OTHER = 'OTHER',
+}

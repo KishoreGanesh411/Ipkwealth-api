@@ -32,6 +32,15 @@ input BulkLeadRowInput {
   sipAmount: Float
 }
 
+input ChangeStageInput {
+  channel: InteractionChannel
+  leadId: ID!
+  nextFollowUpAt: DateTime
+  note: String
+  productExplained: Boolean
+  stage: ClientStage!
+}
+
 input ClientQaInput {
   answer: String!
   question: String!
@@ -102,6 +111,13 @@ enum Gender {
   FEMALE
   MALE
   OTHER
+}
+
+enum InteractionChannel {
+  CALL
+  MEET
+  OTHER
+  WHATSAPP
 }
 
 type IpkLeaddEntity {
@@ -238,6 +254,7 @@ type Mutation {
   addLeadPhone(input: LeadPhoneInput!, leadId: ID!): [LeadPhoneEntity!]!
   assignLead(id: ID!): IpkLeaddEntity!
   assignLeads(ids: [ID!]!): [IpkLeaddEntity!]!
+  changeStage(input: ChangeStageInput!): IpkLeaddEntity!
   createIpkLeadd(input: CreateIpkLeaddInput!): IpkLeaddEntity!
   createLeadsBulk(rows: [BulkLeadRowInput!]!): BulkImportResult!
   createUser(input: CreateUserInput!): CreateUserPayload!

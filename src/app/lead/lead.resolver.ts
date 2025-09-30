@@ -1,20 +1,25 @@
-import { Args, ID, Mutation, Parent, Query, ResolveField, Resolver } from '@nestjs/graphql';
-import { IpkLeaddService } from './ipk-leadd.service';
-import { IpkLeaddEntity } from './entities/ipk-leadd.model';
-import { BulkLeadRowInput, CreateIpkLeaddInput } from './dto/create-lead.input';
-import { LeadListArgs } from './dto/lead-list.args';
-import { LeadPage } from './entities/lead-page.model';
-import { BulkImportResult } from './entities/bulk-result.model';
-import { LeadPhoneEntity } from './entities/lead-phone.model';
-import { LeadEventEntity } from './entities/lead-event.model';
-import { LeadPhoneInput, UpdateLeadBioInput, UpdateLeadRemarkInput } from './dto/lead-phone.input';
-import { ClientQaItemInput, LeadInteractionInput, LeadNoteInput, UpdateLeadClientQaInput } from './dto/lead-event.input';
 import { UseGuards } from '@nestjs/common';
-import { FirebaseAuthGuard } from '../core/firebase/firebase-auth.guard';
+import { Args, ID, Mutation, Parent, Query, ResolveField, Resolver } from '@nestjs/graphql';
 import { CurrentUser } from '../auth/current-user.decorator';
+import { FirebaseAuthGuard } from '../core/firebase/firebase-auth.guard';
 import { UserEntity } from '../user/entities/user.entity';
-import { LeadStatus } from './enums/ipk-leadd.enum';
+import { ChangeStageInput } from './dto/change-stage.input';
+import { BulkLeadRowInput, CreateIpkLeaddInput } from './dto/create-lead.input';
+import {
+  LeadInteractionInput,
+  LeadNoteInput,
+  UpdateLeadClientQaInput
+} from './dto/lead-event.input';
+import { LeadListArgs } from './dto/lead-list.args';
+import { LeadPhoneInput, UpdateLeadBioInput, UpdateLeadRemarkInput } from './dto/lead-phone.input';
 import { ReassignLeadInput } from './dto/reassign-lead.input';
+import { BulkImportResult } from './entities/bulk-result.model';
+import { IpkLeaddEntity } from './entities/ipk-leadd.model';
+import { LeadEventEntity } from './entities/lead-event.model';
+import { LeadPage } from './entities/lead-page.model';
+import { LeadPhoneEntity } from './entities/lead-phone.model';
+import { LeadStatus } from './enums/ipk-leadd.enum';
+import { IpkLeaddService } from './ipk-leadd.service';
 
 @Resolver(() => IpkLeaddEntity)
 export class IpkLeaddResolver {
@@ -116,29 +121,20 @@ export class IpkLeaddResolver {
 
   @UseGuards(FirebaseAuthGuard)
   @Mutation(() => LeadEventEntity)
-  addLeadInteraction(
-    @Args('input') input: LeadInteractionInput,
-    @CurrentUser() user: UserEntity,
-  ) {
+  addLeadInteraction(@Args('input') input: LeadInteractionInput, @CurrentUser() user: UserEntity) {
     return this.service.addInteraction(input.leadId, input.text, input.tags ?? [], user?.id);
   }
 
   // ----------------------- Lead updates --------------------------------
   @UseGuards(FirebaseAuthGuard)
   @Mutation(() => IpkLeaddEntity)
-  updateLeadRemark(
-    @Args('input') input: UpdateLeadRemarkInput,
-    @CurrentUser() user: UserEntity,
-  ) {
+  updateLeadRemark(@Args('input') input: UpdateLeadRemarkInput, @CurrentUser() user: UserEntity) {
     return this.service.updateRemark(input.leadId, input.remark, user?.id);
   }
 
   @UseGuards(FirebaseAuthGuard)
   @Mutation(() => IpkLeaddEntity)
-  updateLeadBio(
-    @Args('input') input: UpdateLeadBioInput,
-    @CurrentUser() user: UserEntity,
-  ) {
+  updateLeadBio(@Args('input') input: UpdateLeadBioInput, @CurrentUser() user: UserEntity) {
     return this.service.updateBio(input.leadId, input.bioText, user?.id);
   }
 
@@ -154,10 +150,7 @@ export class IpkLeaddResolver {
 
   @UseGuards(FirebaseAuthGuard)
   @Mutation(() => IpkLeaddEntity)
-  reassignLead(
-    @Args('input') input: ReassignLeadInput,
-    @CurrentUser() user: UserEntity,
-  ) {
+  reassignLead(@Args('input') input: ReassignLeadInput, @CurrentUser() user: UserEntity) {
     return this.service.reassignLeadToUser(input.leadId, input.newRmId, user?.id);
   }
 
@@ -168,5 +161,10 @@ export class IpkLeaddResolver {
     @CurrentUser() user: UserEntity,
   ) {
     return this.service.updateClientQa(input.leadId, input.items, user?.id);
+  }
+  @UseGuards(FirebaseAuthGuard)
+  @Mutation(() => IpkLeaddEntity)
+  changeStage(@Args('input') input: ChangeStageInput, @CurrentUser() user: UserEntity) {
+    return this.service.changeStage(input, user?.id);
   }
 }

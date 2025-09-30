@@ -1,12 +1,13 @@
 // src/app/lead/app/ipk-leadd.service.ts
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from 'prisma/prisma.service';
 import { $Enums, Prisma } from '@prisma/client';
+import { PrismaService } from 'prisma/prisma.service';
 import { DbSeqService } from '../../common/db-seq.service';
 import { makeMonthlyLeadKey, pad4 } from '../../common/leadcode.util';
+import { normalizePhone, parseApproachAt } from '../common/phone.util';
+import { ChangeStageInput } from './dto/change-stage.input';
 import { CreateIpkLeaddInput } from './dto/create-lead.input';
 import { LeadListArgs } from './dto/lead-list.args';
-import { normalizePhone, parseApproachAt } from '../common/phone.util';
 import { LeadPhoneInput } from './dto/lead-phone.input';
 import { LeadEventType } from './enums/ipk-leadd.enum';
 
@@ -33,10 +34,9 @@ export class IpkLeaddService {
     const clientQa = input.clientQa ?? null;
     const existing = await this.prisma.ipkLeadd.findFirst({
       where: {
-        OR: [
-          pn ? { phoneNormalized: pn } : undefined,
-          { phone: input.phone },
-        ].filter(Boolean) as Prisma.IpkLeaddWhereInput[],
+        OR: [pn ? { phoneNormalized: pn } : undefined, { phone: input.phone }].filter(
+          Boolean,
+        ) as Prisma.IpkLeaddWhereInput[],
       },
       orderBy: { createdAt: 'desc' },
       include: { assignedRm: true },
@@ -56,28 +56,22 @@ export class IpkLeaddService {
           name: mergedName,
           email: input.email ?? existing.email,
           location: input.location ?? existing.location,
+          referralCode: input.referralCode ?? existing.referralCode ?? null,
           gender: (input.gender as $Enums.Gender) ?? existing.gender ?? null,
           age: (input.age as number | null) ?? existing.age ?? null,
-          profession:
-            (input.profession as $Enums.Profession) ??
-            existing.profession ??
-            null,
+          profession: (input.profession as $Enums.Profession) ?? existing.profession ?? null,
           companyName: input.companyName ?? existing.companyName,
           designation: input.designation ?? existing.designation,
-          product:
-            (input.product as $Enums.Product) ?? existing.product ?? null,
+          product: (input.product as $Enums.Product) ?? existing.product ?? null,
           investmentRange: input.investmentRange ?? existing.investmentRange,
-          sipAmount:
-            (input.sipAmount as number | null) ?? existing.sipAmount ?? null,
+          sipAmount: (input.sipAmount as number | null) ?? existing.sipAmount ?? null,
           clientTypes: input.clientTypes ?? existing.clientTypes,
           remark: input.remark ?? existing.remark,
 
           phoneNormalized: pn ?? existing.phoneNormalized,
           archived: false,
           status:
-            existing.status === $Enums.LeadStatus.CLOSED
-              ? $Enums.LeadStatus.OPEN
-              : existing.status,
+            existing.status === $Enums.LeadStatus.CLOSED ? $Enums.LeadStatus.OPEN : existing.status,
 
           reenterCount: { increment: 1 },
           lastSeenAt: new Date(),
@@ -92,8 +86,7 @@ export class IpkLeaddService {
       data: {
         firstName: input.firstName ?? null,
         lastName: input.lastName ?? null,
-        name:
-          input.name ?? this.buildName(input.firstName, input.lastName, null),
+        name: input.name ?? this.buildName(input.firstName, input.lastName, null),
 
         email: input.email ?? null,
         phone: input.phone,
@@ -143,8 +136,7 @@ export class IpkLeaddService {
       orderBy: { createdAt: 'asc' },
       select: { id: true, name: true },
     });
-    if (rms.length === 0)
-      throw new Error('No active Relationship Managers found');
+    if (rms.length === 0) throw new Error('No active Relationship Managers found');
 
     const { start } = await this.dbseq.nextRange('RR_RM_ACTIVE', 1);
     const idx = (start - 1) % rms.length;
@@ -248,8 +240,7 @@ export class IpkLeaddService {
 
       // Attach to where.AND
       const andParts: Prisma.IpkLeaddWhereInput[] = [];
-      if (where.AND)
-        andParts.push(...(Array.isArray(where.AND) ? where.AND : [where.AND]));
+      if (where.AND) andParts.push(...(Array.isArray(where.AND) ? where.AND : [where.AND]));
       andParts.push({ OR: dormantOr });
 
       where.AND = andParts;
@@ -286,7 +277,8 @@ export class IpkLeaddService {
   }
   async createLeadsBulk(rows: CreateIpkLeaddInput[]) {
     const errors: string[] = [];
-    let created = 0, merged = 0;
+    let created = 0,
+      merged = 0;
 
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i];
@@ -295,8 +287,7 @@ export class IpkLeaddService {
         // Minimal validation
         if (!r.phone) throw new Error('Phone missing');
         if (!r.leadSource) throw new Error('Lead Source missing');
-        if (!r.name && !r.firstName && !r.lastName)
-          throw new Error('Name missing');
+        if (!r.name && !r.firstName && !r.lastName) throw new Error('Name missing');
 
         // normalize
         r.phone = normalizePhone(r.phone) ?? r.phone;
@@ -355,9 +346,14 @@ export class IpkLeaddService {
         data: { isPrimary: false },
       });
     } else {
-      const hasPrimary = await this.prisma.leadPhone.findFirst({ where: { leadId, isPrimary: true } });
+      const hasPrimary = await this.prisma.leadPhone.findFirst({
+        where: { leadId, isPrimary: true },
+      });
       if (!hasPrimary) {
-        await this.prisma.leadPhone.update({ where: { id: created.id }, data: { isPrimary: true } });
+        await this.prisma.leadPhone.update({
+          where: { id: created.id },
+          data: { isPrimary: true },
+        });
       }
     }
 
@@ -365,7 +361,7 @@ export class IpkLeaddService {
       data: {
         leadId,
         authorId: authorId ?? null,
-        type: 'PHONE_ADDED' as $Enums.LeadEventType,
+        type: LeadEventType.PHONE_ADDED as $Enums.LeadEventType,
         text: `Added phone ${created.number}`,
         tags: [created.label],
         meta: { phoneId: created.id, normalized: created.normalized },
@@ -396,7 +392,7 @@ export class IpkLeaddService {
       data: {
         leadId: phone.leadId,
         authorId: authorId ?? null,
-        type: 'PHONE_REMOVED' as $Enums.LeadEventType,
+        type: LeadEventType.PHONE_REMOVED as $Enums.LeadEventType,
         text: `Removed phone ${phone.number}`,
         tags: [phone.label],
         meta: { phoneId },
@@ -411,7 +407,10 @@ export class IpkLeaddService {
     if (!phone) throw new Error('Phone not found');
 
     await this.prisma.$transaction([
-      this.prisma.leadPhone.updateMany({ where: { leadId: phone.leadId, NOT: { id: phoneId } }, data: { isPrimary: false } }),
+      this.prisma.leadPhone.updateMany({
+        where: { leadId: phone.leadId, NOT: { id: phoneId } },
+        data: { isPrimary: false },
+      }),
       this.prisma.leadPhone.update({ where: { id: phoneId }, data: { isPrimary: true } }),
     ]);
 
@@ -419,7 +418,7 @@ export class IpkLeaddService {
       data: {
         leadId: phone.leadId,
         authorId: authorId ?? null,
-        type: 'PHONE_MARKED_PRIMARY' as $Enums.LeadEventType,
+        type: LeadEventType.PHONE_MARKED_PRIMARY as $Enums.LeadEventType,
         text: `Marked primary ${phone.number}`,
         tags: [phone.label],
         meta: { phoneId },
@@ -432,12 +431,15 @@ export class IpkLeaddService {
   async setWhatsapp(phoneId: string, isWhatsapp: boolean, authorId?: string | null) {
     const phone = await this.prisma.leadPhone.findUnique({ where: { id: phoneId } });
     if (!phone) throw new Error('Phone not found');
-    const updated = await this.prisma.leadPhone.update({ where: { id: phoneId }, data: { isWhatsapp } });
+    const updated = await this.prisma.leadPhone.update({
+      where: { id: phoneId },
+      data: { isWhatsapp },
+    });
     await this.prisma.leadEvent.create({
       data: {
         leadId: phone.leadId,
         authorId: authorId ?? null,
-        type: 'NOTE' as $Enums.LeadEventType,
+        type: LeadEventType.NOTE as $Enums.LeadEventType,
         text: `${isWhatsapp ? 'Enabled' : 'Disabled'} WhatsApp on ${phone.number}`,
         tags: ['WHATSAPP'],
         meta: { phoneId },
@@ -449,24 +451,44 @@ export class IpkLeaddService {
   // --------------------------- Events & Updates ------------------------
   async addNote(leadId: string, text: string, tags: string[] = [], authorId?: string | null) {
     return this.prisma.leadEvent.create({
-      data: { leadId, authorId: authorId ?? null, type: 'NOTE' as $Enums.LeadEventType, text, tags },
+      data: {
+        leadId,
+        authorId: authorId ?? null,
+        type: LeadEventType.NOTE as $Enums.LeadEventType,
+        text,
+        tags,
+      },
     });
   }
 
-  async addInteraction(leadId: string, text: string, tags: string[] = [], authorId?: string | null) {
+  async addInteraction(
+    leadId: string,
+    text: string,
+    tags: string[] = [],
+    authorId?: string | null,
+  ) {
     return this.prisma.leadEvent.create({
-      data: { leadId, authorId: authorId ?? null, type: 'INTERACTION' as $Enums.LeadEventType, text, tags },
+      data: {
+        leadId,
+        authorId: authorId ?? null,
+        type: LeadEventType.INTERACTION as $Enums.LeadEventType,
+        text,
+        tags,
+      },
     });
   }
 
   async updateRemark(leadId: string, remark: string, authorId?: string | null) {
-    const prev = await this.prisma.ipkLeadd.findUnique({ where: { id: leadId }, select: { remark: true } });
+    const prev = await this.prisma.ipkLeadd.findUnique({
+      where: { id: leadId },
+      select: { remark: true },
+    });
     const next = await this.prisma.ipkLeadd.update({ where: { id: leadId }, data: { remark } });
     await this.prisma.leadEvent.create({
       data: {
         leadId,
         authorId: authorId ?? null,
-        type: 'REMARK_UPDATED' as $Enums.LeadEventType,
+        type: LeadEventType.REMARK_UPDATED as $Enums.LeadEventType,
         text: 'Remark updated',
         tags: [],
         prev: { remark: prev?.remark ?? null },
@@ -477,13 +499,16 @@ export class IpkLeaddService {
   }
 
   async updateBio(leadId: string, bioText: string, authorId?: string | null) {
-    const prev = await this.prisma.ipkLeadd.findUnique({ where: { id: leadId }, select: { bioText: true } });
+    const prev = await this.prisma.ipkLeadd.findUnique({
+      where: { id: leadId },
+      select: { bioText: true },
+    });
     const next = await this.prisma.ipkLeadd.update({ where: { id: leadId }, data: { bioText } });
     await this.prisma.leadEvent.create({
       data: {
         leadId,
         authorId: authorId ?? null,
-        type: 'BIO_UPDATED' as $Enums.LeadEventType,
+        type: LeadEventType.BIO_UPDATED as $Enums.LeadEventType,
         text: 'Bio updated',
         tags: [],
         prev: { bioText: prev?.bioText ?? null },
@@ -494,13 +519,16 @@ export class IpkLeaddService {
   }
 
   async updateStatus(leadId: string, status: $Enums.LeadStatus, authorId?: string | null) {
-    const prev = await this.prisma.ipkLeadd.findUnique({ where: { id: leadId }, select: { status: true } });
+    const prev = await this.prisma.ipkLeadd.findUnique({
+      where: { id: leadId },
+      select: { status: true },
+    });
     const next = await this.prisma.ipkLeadd.update({ where: { id: leadId }, data: { status } });
     await this.prisma.leadEvent.create({
       data: {
         leadId,
         authorId: authorId ?? null,
-        type: 'STATUS_CHANGE' as $Enums.LeadEventType,
+        type: LeadEventType.STATUS_CHANGE as $Enums.LeadEventType,
         text: `Status: ${prev?.status ?? 'UNKNOWN'} -> ${status}`,
         tags: ['STATUS'],
         prev: { status: prev?.status ?? null },
@@ -511,7 +539,10 @@ export class IpkLeaddService {
   }
 
   async reassignLeadToUser(leadId: string, newRmId: string, authorId?: string | null) {
-    const user = await this.prisma.user.findUnique({ where: { id: newRmId }, select: { id: true, name: true } });
+    const user = await this.prisma.user.findUnique({
+      where: { id: newRmId },
+      select: { id: true, name: true },
+    });
     if (!user) throw new Error('RM user not found');
     const next = await this.prisma.ipkLeadd.update({
       where: { id: leadId },
@@ -525,7 +556,7 @@ export class IpkLeaddService {
       data: {
         leadId,
         authorId: authorId ?? null,
-        type: 'ASSIGNMENT' as $Enums.LeadEventType,
+        type: LeadEventType.ASSIGNMENT as $Enums.LeadEventType,
         text: `Assigned to ${user.name}`,
         tags: ['ASSIGNMENT'],
         next: { assignedRmId: user.id, assignedRM: user.name },
@@ -534,20 +565,140 @@ export class IpkLeaddService {
     return next;
   }
 
-  async updateClientQa(leadId: string, items: Array<{ question: string; answer: string }>, authorId?: string | null) {
-    const prev = await this.prisma.ipkLeadd.findUnique({ where: { id: leadId }, select: { clientQa: true } });
-    const next = await this.prisma.ipkLeadd.update({ where: { id: leadId }, data: { clientQa: items as any } });
+  async updateClientQa(
+    leadId: string,
+    items: Array<{ question: string; answer: string }>,
+    authorId?: string | null,
+  ) {
+    const prev = await this.prisma.ipkLeadd.findUnique({
+      where: { id: leadId },
+      select: { clientQa: true },
+    });
+    const next = await this.prisma.ipkLeadd.update({
+      where: { id: leadId },
+      data: { clientQa: items as any },
+    });
     await this.prisma.leadEvent.create({
       data: {
         leadId,
         authorId: authorId ?? null,
-        type: 'HISTORY_SNAPSHOT' as $Enums.LeadEventType,
+        type: LeadEventType.HISTORY_SNAPSHOT as $Enums.LeadEventType,
         text: 'Client Q&A updated',
         tags: ['CLIENT_QA'],
         prev: { clientQa: prev?.clientQa ?? null },
         next: { clientQa: next.clientQa ?? null },
       },
     });
+    return next;
+  }
+  async changeStage(input: ChangeStageInput, authorId?: string | null) {
+    const { leadId, stage, productExplained, channel, nextFollowUpAt, note } = input;
+
+    const prev = await this.prisma.ipkLeadd.findUnique({
+      where: { id: leadId },
+      select: {
+        status: true,
+        clientStage: true,
+        assignedRM: true,
+        assignedRmId: true,
+        remark: true,
+        approachAt: true,
+        lastSeenAt: true,
+        leadCode: true,
+        name: true,
+        phone: true,
+        leadSource: true,
+        product: true,
+        clientTypes: true,
+      },
+    });
+    if (!prev) throw new Error('Lead not found');
+
+    // Update minimal lead fields: clientStage + approachAt + lastSeenAt
+    const next = await this.prisma.ipkLeadd.update({
+      where: { id: leadId },
+      data: {
+        clientStage: stage as unknown as $Enums.ClientStage,
+        approachAt: nextFollowUpAt ?? prev.approachAt ?? null,
+        lastSeenAt: new Date(),
+      },
+    });
+
+    // Build an informative text line for the timeline
+    const summaryText = [
+      `Stage → ${stage}`,
+      typeof productExplained === 'boolean'
+        ? `Product explained: ${productExplained ? 'Yes' : 'No'}`
+        : null,
+      channel ? `Channel: ${channel}` : null,
+      nextFollowUpAt ? `Next follow-up: ${nextFollowUpAt.toISOString()}` : null,
+      note ? `Note: ${note}` : null,
+    ]
+      .filter(Boolean)
+      .join(' | ');
+
+    // Single rich event with snapshot
+    await this.prisma.leadEvent.create({
+      data: {
+        leadId,
+        authorId: authorId ?? null,
+        type: $Enums.LeadEventType.HISTORY_SNAPSHOT,
+        text: summaryText || 'Stage updated',
+        tags: [
+          'STAGE',
+          ...(channel ? [String(channel)] : []),
+          ...(productExplained === true ? ['PRODUCT_EXPLAINED'] : []),
+          ...(productExplained === false ? ['PRODUCT_NOT_EXPLAINED'] : []),
+        ],
+        prev: {
+          status: prev.status,
+          clientStage: prev.clientStage,
+          approachAt: prev.approachAt,
+          lastSeenAt: prev.lastSeenAt,
+          assignedRM: prev.assignedRM,
+          leadCode: prev.leadCode,
+          name: prev.name,
+          phone: prev.phone,
+          leadSource: prev.leadSource,
+          product: prev.product,
+          clientTypes: prev.clientTypes,
+          remark: prev.remark,
+        },
+        next: {
+          status: next.status,
+          clientStage: next.clientStage,
+          approachAt: next.approachAt,
+          lastSeenAt: next.lastSeenAt,
+          assignedRM: next.assignedRM,
+          leadCode: next.leadCode,
+          name: prev.name,
+          phone: prev.phone,
+          leadSource: prev.leadSource,
+          product: prev.product,
+          clientTypes: prev.clientTypes,
+          remark: prev.remark,
+        },
+        meta: {
+          productExplained: typeof productExplained === 'boolean' ? productExplained : null,
+          channel: channel ?? null,
+          ui: 'RM_CHANGE_STAGE_FORM',
+        },
+      },
+    });
+
+    // Optional: if you also want a lightweight interaction line
+    if (note) {
+      await this.prisma.leadEvent.create({
+        data: {
+          leadId,
+          authorId: authorId ?? null,
+          type: $Enums.LeadEventType.INTERACTION,
+          text: note,
+          tags: channel ? [String(channel)] : [],
+        },
+      });
+    }
+
     return next;
   }
 }

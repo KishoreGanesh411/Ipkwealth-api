@@ -1,52 +1,95 @@
 {
-  "cSpell.words": [
-    "Leadd"
-  ],
-  // Auto format with Prettier
+  // -----------------------------
+  // Formatting & Editor Defaults
+  // -----------------------------
   "editor.formatOnSave": true,
-  "editor.defaultFormatter": "esbenp.prettier-vscode",
-  // Force LF
-  "files.eol": "\n",
-  // Optional: format when pasting
   "editor.formatOnPaste": true,
-  "filetree-pro.exclude": [
-    "**/node_modules/**",
-    "**/.git/**",
-    "**/.husky/**",
-    "**/.vscode/**",
-    "**/.idea/**",
-    "**/.history/**",
-    "**/.cache/**",
-    "**/.eslintcache",
-    "**/.pnpm-store/**",
-    "**/.parcel-cache/**",
-    "**/.turbo/**",
-    "**/.vite/**",
-    "**/.next/**",
-    "**/.swc/**",
-    "**/dist/**",
-    "**/build/**",
-    "**/coverage/**",
-    "**/*.log",
-    "**/*.tmp",
-    "**/*.tsbuildinfo",
-    // assets
-    "**/*.png",
-    "**/*.jpg",
-    "**/*.jpeg",
-    "**/*.gif",
-    "**/*.svg",
-    // hide whole public folder
-    "public",
-    "public/**",
-    "**/public/**",
-    // hide src/icons completely (several patterns to cover how the ext resolves)
-    "src/icons",
-    "src/icons/**",
-    "**/src/icons/**",
-    "**/icons/**",
-    // prisma migrations (optional)
-    "**/prisma/migrations/**"
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "files.eol": "\n",
+  "files.encoding": "utf8",
+  "typescript.preferences.importModuleSpecifier": "shortest",
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+  // -----------------------------
+  // NestJS + TypeScript
+  // -----------------------------
+  "javascript.updateImportsOnFileMove.enabled": "always",
+  "typescript.updateImportsOnFileMove.enabled": "always",
+  "typescript.preferences.quoteStyle": "single",
+  "typescript.inlayHints.parameterNames.enabled": "all",
+  "typescript.inlayHints.parameterTypes.enabled": true,
+  "typescript.inlayHints.variableTypes.enabled": true,
+  "typescript.inlayHints.enumMemberValues.enabled": true,
+  // -----------------------------
+  // Prettier + ESLint
+  // -----------------------------
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit",
+    "source.organizeImports": "explicit"
+  },
+  "eslint.validate": [
+    "typescript",
+    "javascript",
+    "graphql"
   ],
-  "filetree-pro.showIcons": true
+  "eslint.packageManager": "npm",
+  "prettier.requireConfig": true,
+  // -----------------------------
+  // Prisma
+  // -----------------------------
+  "[prisma]": {
+    "editor.defaultFormatter": "Prisma.prisma"
+  },
+  // -----------------------------
+  // GraphQL
+  // -----------------------------
+  "graphql-config.load.rootDir": "src",
+  "editor.quickSuggestions": {
+    "strings": true
+  },
+  "editor.suggest.showSnippets": true,
+  "files.associations": {
+    "*.gql": "graphql",
+    "*.graphql": "graphql"
+  },
+  // -----------------------------
+  // Explorer (Hide noise files)
+  // -----------------------------
+  "files.exclude": {
+    "**/node_modules": true,
+    "**/.git": true,
+    "**/.turbo": true,
+    "**/.next": true,
+    "**/.cache": true,
+    "**/.parcel-cache": true,
+    "**/.husky": true,
+    "**/.vscode": true,
+    "**/.idea": true,
+    "**/.history": true,
+    "**/dist": true,
+    "**/build": true,
+    "**/coverage": true,
+    "**/*.log": true,
+    "**/*.tmp": true,
+    "**/*.tsbuildinfo": true,
+    "**/prisma/migrations/**": true,
+    "public": true,
+    "src/icons": true
+  },
+  // -----------------------------
+  // Terminal & Debug
+  // -----------------------------
+  "terminal.integrated.defaultProfile.windows": "PowerShell",
+  "debug.node.autoAttach": "on",
+  // -----------------------------
+  // Spelling / Workspace Words
+  // -----------------------------
+  "cSpell.words": [
+    "Leadd",
+    "Ipkwealth",
+    "nestjs",
+    "prisma",
+    "graphql",
+    "resolver"
+  ]
 }

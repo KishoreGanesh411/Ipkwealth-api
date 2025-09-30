@@ -50,3 +50,6 @@ export const FirebaseAdminProvider: Provider = {
     return admin;
   },
 };
+
+// Backward/forward compatible export with the expected lower-case name
+export const firebaseAdminProvider = FirebaseAdminProvider;

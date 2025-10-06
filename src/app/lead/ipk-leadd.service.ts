@@ -701,4 +701,54 @@ export class IpkLeaddService {
 
     return next;
   }
+  async listForRm(rmId: string, args: LeadListArgs) {
+    const page = Math.max(1, args.page ?? 1);
+    const pageSize = Math.min(100, Math.max(1, args.pageSize ?? 10));
+
+    const where: Prisma.IpkLeaddWhereInput = {
+      archived: args.archived ?? false,
+      status: args.status ?? undefined,
+      assignedRmId: rmId, // ★ only the current RM’s leads
+      OR: args.search
+        ? [
+          { firstName: { contains: args.search, mode: 'insensitive' } },
+          { lastName: { contains: args.search, mode: 'insensitive' } },
+          { name: { contains: args.search, mode: 'insensitive' } },
+          { phone: { contains: args.search } },
+          { leadSource: { contains: args.search, mode: 'insensitive' } },
+          { leadCode: { contains: args.search, mode: 'insensitive' } },
+        ]
+        : undefined,
+    };
+
+    // keep your existing dormant filter logic
+    if (args.dormantOnly) {
+      const dormantOr: Prisma.IpkLeaddWhereInput[] = [];
+      const days = Number(args.dormantDays ?? 0);
+      if (days > 0) {
+        const cutoff = new Date(Date.now() - days * 86_400_000);
+        dormantOr.push({
+          OR: [
+            { lastSeenAt: { lte: cutoff } },
+            { AND: [{ lastSeenAt: null }, { updatedAt: { lte: cutoff } }] },
+          ],
+        });
+      }
+      dormantOr.push({ reenterCount: { gt: 0 } });
+      where.AND = [{ OR: dormantOr }];
+    }
+
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.ipkLeadd.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        include: { assignedRm: true },
+      }),
+      this.prisma.ipkLeadd.count({ where }),
+    ]);
+
+    return { items, page, pageSize, total };
+  }
 }

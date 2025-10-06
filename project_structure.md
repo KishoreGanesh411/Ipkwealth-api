@@ -113,17 +113,9 @@ Root path: `d:\IPK WorkSapce\New folder\Ipkwealth-api`
 ├── README.md
 ├── editorconfig
 ├── eslint.config.mjs
-<<<<<<< HEAD
-├── firebase-service-account.json
 ├── nest-cli.json
 ├── package-lock.json
 ├── package.json
-├── project_structure.md
-=======
-├── nest-cli.json
-├── package-lock.json
-├── package.json
->>>>>>> fc0be838ec5d9cc7c2d893d8a6953e03c3b9185b
 ├── tsconfig.build.json 🚫 (auto-hidden)
 └── tsconfig.json
 ```

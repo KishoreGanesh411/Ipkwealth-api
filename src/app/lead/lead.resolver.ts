@@ -1,14 +1,15 @@
-import { UseGuards } from '@nestjs/common';
+import { ForbiddenException, UnauthorizedException, UseGuards } from '@nestjs/common';
 import { Args, ID, Mutation, Parent, Query, ResolveField, Resolver } from '@nestjs/graphql';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { FirebaseAuthGuard } from '../core/firebase/firebase-auth.guard';
 import { UserEntity } from '../user/entities/user.entity';
+import { UserRoles } from '../user/enums/user.enums';
 import { ChangeStageInput } from './dto/change-stage.input';
 import { BulkLeadRowInput, CreateIpkLeaddInput } from './dto/create-lead.input';
 import {
   LeadInteractionInput,
   LeadNoteInput,
-  UpdateLeadClientQaInput
+  UpdateLeadClientQaInput,
 } from './dto/lead-event.input';
 import { LeadListArgs } from './dto/lead-list.args';
 import { LeadPhoneInput, UpdateLeadBioInput, UpdateLeadRemarkInput } from './dto/lead-phone.input';
@@ -166,5 +167,28 @@ export class IpkLeaddResolver {
   @Mutation(() => IpkLeaddEntity)
   changeStage(@Args('input') input: ChangeStageInput, @CurrentUser() user: UserEntity) {
     return this.service.changeStage(input, user?.id);
+  }
+  @UseGuards(FirebaseAuthGuard)
+  @Query(() => LeadPage, { name: 'myAssignedLeads' })
+  myAssignedLeads(
+    @Args('args', {
+      type: () => LeadListArgs,
+      defaultValue: { page: 1, pageSize: 10 },
+    })
+    args: LeadListArgs,
+    @CurrentUser() user: UserEntity,
+  ) {
+    if (!user?.id) {
+      throw new UnauthorizedException('User context missing');
+    }
+    if (user.role !== UserRoles.RM) {
+      throw new ForbiddenException('Only RM users can access assigned leads');
+    }
+
+    const normalizedArgs = Object.assign(new LeadListArgs(), args);
+    normalizedArgs.page = normalizedArgs.page ?? 1;
+    normalizedArgs.pageSize = normalizedArgs.pageSize ?? 10;
+
+    return this.service.listForRm(user.id, normalizedArgs);
   }
 }

@@ -288,6 +288,7 @@ type Query {
   leads(args: LeadListArgs!): LeadPage!
   leadsOpen: [IpkLeaddEntity!]!
   me: UserEntity!
+  myAssignedLeads(args: LeadListArgs! = {page: 1, pageSize: 10}): LeadPage!
 }
 
 input ReassignLeadInput {

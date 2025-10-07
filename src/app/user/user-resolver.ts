@@ -15,8 +15,9 @@ import { FirebaseAuthGuard } from '../core/firebase/firebase-auth.guard';
 import { IpkLeaddEntity } from '../lead/entities/ipk-leadd.model';
 import { LeadStatus as GqlLeadStatus } from '../lead/enums/ipk-leadd.enum';
 import { CreateUserInput } from './dto/create-user.dto';
+import { InviteRmInput } from './dto/invite-rm.input';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { CreateUserPayload, UserEntity } from './entities/user.entity';
+import { CreateUserPayload, InviteRmPayload, SyncReport, UserEntity } from './entities/user.entity';
 import { UserApiService } from './user-api.service';
 
 function toGqlLeadStatus(s: $Enums.LeadStatus): GqlLeadStatus {
@@ -105,6 +106,23 @@ export class UserResolver {
     @Args('input') input: UpdateUserDto,
   ): Promise<UserEntity> {
     return this.users.updateUser(id, input);
+  }
+
+  @Mutation(() => InviteRmPayload)
+  async inviteRm(
+    @Args('input') input: InviteRmInput,
+  ): Promise<InviteRmPayload> {
+    return this.users.inviteRm(input);
+  }
+
+  @Mutation(() => UserEntity)
+  async makeAdmin(@Args('id', { type: () => ID }) id: string): Promise<UserEntity> {
+    return this.users.makeAdmin(id);
+  }
+
+  @Mutation(() => SyncReport)
+  async syncUsersWithFirebase(): Promise<SyncReport> {
+    return this.users.syncUsersWithFirebase();
   }
 
   @Mutation(() => UserEntity)

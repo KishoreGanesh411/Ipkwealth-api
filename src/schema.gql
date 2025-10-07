@@ -120,6 +120,20 @@ enum InteractionChannel {
   WHATSAPP
 }
 
+input InviteRmInput {
+  email: String!
+  gender: Gender
+  name: String!
+  phone: String
+}
+
+type InviteRmPayload {
+  message: String
+  starterPassword: String
+  success: Boolean!
+  user: UserEntity
+}
+
 type IpkLeaddEntity {
   age: Int
   approachAt: DateTime!
@@ -259,11 +273,14 @@ type Mutation {
   createLeadsBulk(rows: [BulkLeadRowInput!]!): BulkImportResult!
   createUser(input: CreateUserInput!): CreateUserPayload!
   generatePasswordResetLink(email: String!): String!
+  inviteRm(input: InviteRmInput!): InviteRmPayload!
+  makeAdmin(id: ID!): UserEntity!
   markPrimaryLeadPhone(phoneId: ID!): [LeadPhoneEntity!]!
   reassignLead(input: ReassignLeadInput!): IpkLeaddEntity!
   removeLeadPhone(phoneId: ID!): [LeadPhoneEntity!]!
   removeUser(id: ID!): UserEntity!
   setLeadPhoneWhatsapp(isWhatsapp: Boolean!, phoneId: ID!): LeadPhoneEntity!
+  syncUsersWithFirebase: SyncReport!
   updateLeadBio(input: UpdateLeadBioInput!): IpkLeaddEntity!
   updateLeadClientQa(input: UpdateLeadClientQaInput!): IpkLeaddEntity!
   updateLeadRemark(input: UpdateLeadRemarkInput!): IpkLeaddEntity!
@@ -301,6 +318,15 @@ enum Status {
   INACTIVE
 }
 
+type SyncReport {
+  checked: Float!
+  createdInFirebase: Float!
+  linkedByEmail: Float!
+  missingFirebase: [String!]!
+  updatedDisplayName: Float!
+  updatedEmail: Float!
+}
+
 input UpdateLeadBioInput {
   bioText: String!
   leadId: ID!
@@ -323,6 +349,7 @@ input UpdateUserDto {
   firebaseUid: String
   gender: Gender
   name: String
+  newPassword: String
   password: String
   phone: String
   role: UserRoles

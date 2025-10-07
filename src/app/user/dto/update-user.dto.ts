@@ -1,5 +1,5 @@
 import { InputType, Field, PartialType } from '@nestjs/graphql';
-import { IsEmail, IsEnum, IsOptional, IsString } from 'class-validator';
+import { IsEmail, IsEnum, IsOptional, IsString, MinLength } from 'class-validator';
 import { CreateUserInput } from './create-user.dto';
 import { Status, UserRoles } from '../enums/user.enums';
 import { Gender } from 'src/app/enums/common.enum';
@@ -47,4 +47,11 @@ export class UpdateUserDto extends PartialType(CreateUserInput) {
   @Field({ nullable: true })
   @IsOptional()
   firebaseUid?: string;
+
+  // Optional password change handled via Firebase + DB hash update
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsString()
+  @MinLength(8)
+  newPassword?: string;
 }

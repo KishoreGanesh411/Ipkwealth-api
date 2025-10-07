@@ -15,8 +15,9 @@ import { FIREBASE_ADMIN } from '../core/firebase/firebase-admin.provider';
 import { FirebaseAuthUser } from '../core/firebase/firebase.types';
 import { CreateUserInput } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { CreateUserPayload, UserEntity } from './entities/user.entity';
+import { CreateUserPayload, InviteRmPayload, SyncReport, UserEntity } from './entities/user.entity';
 import { Status as UserStatusEnum } from './enums/user.enums';
+import { InviteRmInput } from './dto/invite-rm.input';
 
 type ActiveDto = { active: boolean };
 
@@ -98,20 +99,72 @@ export class UserApiService {
 
   /* ------------------------------ UPDATE ---------------------------- */
   async updateUser(id: string, dto: UpdateUserDto): Promise<UserEntity> {
-    const user = await this.prisma.user.update({
-      where: { id },
-      data: {
-        name: dto.name,
-        email: dto.email ? this.normalizeEmail(dto.email) : undefined,
-        phone:
-          dto.phone !== undefined ? this.normalizePhone(dto.phone) : undefined,
-        gender: dto.gender,
-        archived: dto.archived,
-        role: dto.role ? { set: dto.role } : undefined,
-        status: dto.status ? { set: dto.status } : undefined,
-        firebaseUid: dto.firebaseUid,
-      },
-    });
+    const existing = await this.prisma.user.findUnique({ where: { id } });
+    if (!existing) {
+      throw new NotFoundException('User not found');
+    }
+
+    const updates: admin.auth.UpdateRequest = {};
+    const nextEmail = dto.email ? this.normalizeEmail(dto.email) : undefined;
+    const nextName = dto.name?.trim();
+    const nextPassword = dto.newPassword;
+
+    // Apply Firebase updates first when applicable
+    if (nextEmail && nextEmail !== existing.email) {
+      updates.email = nextEmail;
+    }
+    if (nextName && nextName !== existing.name) {
+      updates.displayName = nextName;
+    }
+    if (nextPassword) {
+      updates.password = nextPassword;
+    }
+
+    if (Object.keys(updates).length > 0) {
+      try {
+        await this.firebase.auth().updateUser(existing.firebaseUid, updates);
+      } catch (error) {
+        // Map Firebase errors to readable exceptions
+        const code = this.extractFirebaseErrorCode(error);
+        switch (code) {
+          case 'auth/email-already-exists':
+            throw new ConflictException('Email already exists in Firebase');
+          case 'auth/invalid-email':
+            throw new BadRequestException('Invalid email');
+          case 'auth/invalid-password':
+          case 'auth/weak-password':
+            throw new BadRequestException('Password does not meet requirements');
+          default:
+            throw new InternalServerErrorException('Failed to update Firebase user');
+        }
+      }
+    }
+
+    // If role changed, set custom claims in Firebase
+    if (dto.role && dto.role !== existing.role) {
+      try {
+        await this.firebase.auth().setCustomUserClaims(existing.firebaseUid, { role: dto.role });
+      } catch {
+        // Non-fatal; proceed with DB update
+      }
+    }
+
+    const prismaData: Prisma.UserUpdateInput = {
+      name: nextName ?? undefined,
+      email: nextEmail ?? undefined,
+      phone: dto.phone !== undefined ? this.normalizePhone(dto.phone) : undefined,
+      gender: dto.gender,
+      archived: dto.archived,
+      role: dto.role ? { set: dto.role } : undefined,
+      status: dto.status ? { set: dto.status } : undefined,
+      firebaseUid: dto.firebaseUid,
+    };
+
+    if (nextPassword) {
+      prismaData.passwordHash = await hashPassword(nextPassword);
+    }
+
+    const user = await this.prisma.user.update({ where: { id }, data: prismaData });
     return user as unknown as UserEntity;
   }
 
@@ -258,6 +311,160 @@ export class UserApiService {
     });
 
     return created as unknown as UserEntity;
+  }
+
+  /* --------------------------- INVITE RM ---------------------------- */
+  async inviteRm(input: InviteRmInput): Promise<InviteRmPayload> {
+    const email = this.normalizeEmail(input.email);
+    await this.assertEmailAvailable(email);
+
+    const starterPassword = randomBytes(12).toString('base64url');
+    const displayName = input.name.trim();
+    let userRecord: admin.auth.UserRecord;
+    try {
+      userRecord = await this.firebase.auth().createUser({
+        email,
+        password: starterPassword,
+        displayName,
+        disabled: false,
+      });
+      // Set RM role claims
+      await this.firebase.auth().setCustomUserClaims(userRecord.uid, { role: $Enums.UserRoles.RM });
+    } catch (error) {
+      this.handleFirebaseCreateError(error);
+    }
+
+    const firebaseUid = userRecord.uid;
+    const passwordHash = await hashPassword(starterPassword);
+
+    try {
+      const user = await this.prisma.user.create({
+        data: {
+          archived: false,
+          name: displayName,
+          email,
+          role: $Enums.UserRoles.RM,
+          gender: input.gender ?? null,
+          phone: this.normalizePhone(input.phone),
+          status: UserStatusEnum.ACTIVE,
+          firebaseUid,
+          passwordHash,
+        },
+      });
+
+      return {
+        success: true,
+        message: 'RM invited',
+        user: user as unknown as UserEntity,
+        starterPassword,
+      };
+    } catch (error) {
+      await this.safeDeleteFirebaseUser(firebaseUid);
+      this.handlePrismaError(error);
+    }
+
+    throw new InternalServerErrorException('Failed to invite RM');
+  }
+
+  /* ---------------------------- MAKE ADMIN -------------------------- */
+  async makeAdmin(id: string): Promise<UserEntity> {
+    const existing = await this.prisma.user.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('User not found');
+
+    try {
+      await this.firebase.auth().setCustomUserClaims(existing.firebaseUid, { role: $Enums.UserRoles.ADMIN });
+    } catch {
+      // Ignore non-fatal claim set failures
+    }
+
+    const user = await this.prisma.user.update({
+      where: { id },
+      data: { role: { set: $Enums.UserRoles.ADMIN } },
+    });
+    return user as unknown as UserEntity;
+  }
+
+  /* ------------------------------ SYNC ------------------------------ */
+  async syncUsersWithFirebase(): Promise<SyncReport> {
+    const users = await this.prisma.user.findMany();
+    let checked = 0;
+    let linkedByEmail = 0;
+    let createdInFirebase = 0;
+    let updatedEmail = 0;
+    let updatedDisplayName = 0;
+    const missingFirebase: string[] = [];
+
+    for (const u of users) {
+      checked++;
+      let record: admin.auth.UserRecord | null = null;
+      // 1. Try by firebaseUid
+      if (u.firebaseUid) {
+        try {
+          record = await this.firebase.auth().getUser(u.firebaseUid);
+        } catch {
+          record = null;
+        }
+      }
+
+      // 2. If not found, try by email
+      if (!record) {
+        try {
+          record = await this.firebase.auth().getUserByEmail(u.email);
+          if (record && !u.firebaseUid) {
+            await this.prisma.user.update({ where: { id: u.id }, data: { firebaseUid: record.uid } });
+            linkedByEmail++;
+          }
+        } catch {
+          record = null;
+        }
+      }
+
+      // 3. If still not found, create in Firebase
+      if (!record) {
+        try {
+          const tmpPwd = randomBytes(16).toString('base64url');
+          record = await this.firebase.auth().createUser({
+            email: u.email,
+            displayName: u.name,
+            password: tmpPwd,
+          });
+          await this.firebase.auth().setCustomUserClaims(record.uid, { role: u.role });
+          await this.prisma.user.update({ where: { id: u.id }, data: { firebaseUid: record.uid } });
+          createdInFirebase++;
+        } catch {
+          missingFirebase.push(u.id);
+          continue;
+        }
+      }
+
+      // 4. Reconcile email/displayName into Firebase from DB as source of truth
+      const patch: admin.auth.UpdateRequest = {};
+      const normalizedEmail = this.normalizeEmail(u.email);
+      if (record.email !== normalizedEmail) {
+        patch.email = normalizedEmail;
+      }
+      if (u.name && record.displayName !== u.name) {
+        patch.displayName = u.name;
+      }
+      if (Object.keys(patch).length > 0) {
+        try {
+          await this.firebase.auth().updateUser(record.uid, patch);
+          if (patch.email) updatedEmail++;
+          if (patch.displayName) updatedDisplayName++;
+        } catch {
+          // ignore; surfaced via counts
+        }
+      }
+    }
+
+    return {
+      checked,
+      linkedByEmail,
+      createdInFirebase,
+      updatedEmail,
+      updatedDisplayName,
+      missingFirebase,
+    };
   }
 
   private pickRole(

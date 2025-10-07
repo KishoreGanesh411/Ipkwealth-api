@@ -104,6 +104,15 @@ export class UserApiService {
       throw new NotFoundException('User not found');
     }
 
+    // Ensure we have a Firebase user for this account (link by email or create)
+    const fbRecord = await this.ensureFirebaseUser({
+      id: existing.id,
+      email: existing.email,
+      name: existing.name,
+      role: existing.role,
+      firebaseUid: existing.firebaseUid ?? null,
+    });
+
     const updates: admin.auth.UpdateRequest = {};
     const nextEmail = dto.email ? this.normalizeEmail(dto.email) : undefined;
     const nextName = dto.name?.trim();
@@ -122,7 +131,7 @@ export class UserApiService {
 
     if (Object.keys(updates).length > 0) {
       try {
-        await this.firebase.auth().updateUser(existing.firebaseUid, updates);
+        await this.firebase.auth().updateUser(fbRecord.uid, updates);
       } catch (error) {
         // Map Firebase errors to readable exceptions
         const code = this.extractFirebaseErrorCode(error);
@@ -143,7 +152,7 @@ export class UserApiService {
     // If role changed, set custom claims in Firebase
     if (dto.role && dto.role !== existing.role) {
       try {
-        await this.firebase.auth().setCustomUserClaims(existing.firebaseUid, { role: dto.role });
+        await this.firebase.auth().setCustomUserClaims(fbRecord.uid, { role: dto.role });
       } catch {
         // Non-fatal; proceed with DB update
       }
@@ -157,7 +166,7 @@ export class UserApiService {
       archived: dto.archived,
       role: dto.role ? { set: dto.role } : undefined,
       status: dto.status ? { set: dto.status } : undefined,
-      firebaseUid: dto.firebaseUid,
+      // Do not allow client to set firebaseUid directly
     };
 
     if (nextPassword) {
@@ -372,7 +381,14 @@ export class UserApiService {
     if (!existing) throw new NotFoundException('User not found');
 
     try {
-      await this.firebase.auth().setCustomUserClaims(existing.firebaseUid, { role: $Enums.UserRoles.ADMIN });
+      const fb = await this.ensureFirebaseUser({
+        id: existing.id,
+        email: existing.email,
+        name: existing.name,
+        role: existing.role,
+        firebaseUid: existing.firebaseUid ?? null,
+      });
+      await this.firebase.auth().setCustomUserClaims(fb.uid, { role: $Enums.UserRoles.ADMIN });
     } catch {
       // Ignore non-fatal claim set failures
     }
@@ -465,6 +481,51 @@ export class UserApiService {
       updatedDisplayName,
       missingFirebase,
     };
+  }
+
+  /** Ensure there is a Firebase user for a DB user; link by email or create if needed. */
+  private async ensureFirebaseUser(user: {
+    id: string;
+    email: string;
+    name: string;
+    role: $Enums.UserRoles;
+    firebaseUid: string | null;
+  }): Promise<admin.auth.UserRecord> {
+    // 1) If we have a UID, try to fetch; if missing, continue
+    if (user.firebaseUid) {
+      try {
+        return await this.firebase.auth().getUser(user.firebaseUid);
+      } catch {
+        // fallthrough
+      }
+    }
+
+    // 2) Try to locate by email
+    try {
+      const rec = await this.firebase.auth().getUserByEmail(this.normalizeEmail(user.email));
+      if (!user.firebaseUid || user.firebaseUid !== rec.uid) {
+        await this.prisma.user.update({ where: { id: user.id }, data: { firebaseUid: rec.uid } });
+      }
+      return rec;
+    } catch {
+      // not found
+    }
+
+    // 3) Create a new Firebase user
+    const tmpPwd = randomBytes(16).toString('base64url');
+    const rec = await this.firebase.auth().createUser({
+      email: this.normalizeEmail(user.email),
+      displayName: user.name,
+      password: tmpPwd,
+      disabled: false,
+    });
+    try {
+      await this.firebase.auth().setCustomUserClaims(rec.uid, { role: user.role });
+    } catch {
+      /* ignore */
+    }
+    await this.prisma.user.update({ where: { id: user.id }, data: { firebaseUid: rec.uid } });
+    return rec;
   }
 
   private pickRole(

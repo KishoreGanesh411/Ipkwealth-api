@@ -112,7 +112,7 @@ model User {
   name      String
   email     String   @unique
   role      UserRoles
-  firebaseUid String   @unique
+  firebaseUid String?   @unique
   passwordHash String?
   gender    Gender?
   phone     String?

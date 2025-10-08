@@ -123,7 +123,18 @@ export class IpkLeaddResolver {
   @UseGuards(FirebaseAuthGuard)
   @Mutation(() => LeadEventEntity)
   addLeadInteraction(@Args('input') input: LeadInteractionInput, @CurrentUser() user: UserEntity) {
-    return this.service.addInteraction(input.leadId, input.text, input.tags ?? [], user?.id);
+    return this.service.addInteraction(
+      {
+        leadId: input.leadId,
+        text: input.text,
+        tags: input.tags ?? [],
+        channel: input.channel,
+        outcome: input.outcome,
+        nextFollowUpAt: input.nextFollowUpAt,
+        dormantReason: input.dormantReason,
+      },
+      user?.id,
+    );
   }
 
   // ----------------------- Lead updates --------------------------------

@@ -52,8 +52,26 @@ export enum LeadEventType {
 }
 
 export enum InteractionChannel {
-  WHATSAPP = 'WHATSAPP',
   CALL = 'CALL',
-  MEET = 'MEET',
+  WHATSAPP = 'WHATSAPP',
+  SMS = 'SMS',
+  EMAIL = 'EMAIL',
+  MEETING = 'MEETING',
+  OTHER = 'OTHER',
+}
+
+export enum InteractionOutcome {
+  NO_ANSWER = 'NO_ANSWER',
+  ANSWERED = 'ANSWERED',
+  INTERESTED = 'INTERESTED',
+  NOT_INTERESTED = 'NOT_INTERESTED',
+  FOLLOW_UP_NEEDED = 'FOLLOW_UP_NEEDED',
+  WRONG_NUMBER = 'WRONG_NUMBER',
+}
+
+export enum DormantReason {
+  NO_RESPONSE = 'NO_RESPONSE',
+  NOT_INTERESTED = 'NOT_INTERESTED',
+  RISKY_CLIENT = 'RISKY_CLIENT',
   OTHER = 'OTHER',
 }

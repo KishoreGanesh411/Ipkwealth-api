@@ -107,6 +107,13 @@ A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date
 """
 scalar DateTime
 
+enum DormantReason {
+  NOT_INTERESTED
+  NO_RESPONSE
+  OTHER
+  RISKY_CLIENT
+}
+
 enum Gender {
   FEMALE
   MALE
@@ -115,9 +122,20 @@ enum Gender {
 
 enum InteractionChannel {
   CALL
-  MEET
+  EMAIL
+  MEETING
   OTHER
+  SMS
   WHATSAPP
+}
+
+enum InteractionOutcome {
+  ANSWERED
+  FOLLOW_UP_NEEDED
+  INTERESTED
+  NOT_INTERESTED
+  NO_ANSWER
+  WRONG_NUMBER
 }
 
 input InviteRmInput {
@@ -206,7 +224,11 @@ enum LeadEventType {
 }
 
 input LeadInteractionInput {
+  channel: InteractionChannel
+  dormantReason: DormantReason
   leadId: ID!
+  nextFollowUpAt: DateTime
+  outcome: InteractionOutcome
   tags: [String!]! = []
   text: String!
 }

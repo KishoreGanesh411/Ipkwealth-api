@@ -28,6 +28,31 @@ enum LeadEventType {
   HISTORY_SNAPSHOT
 }
 
+enum InteractionChannel {
+  CALL
+  WHATSAPP
+  SMS
+  EMAIL
+  MEETING
+  OTHER
+}
+
+enum InteractionOutcome {
+  NO_ANSWER
+  ANSWERED
+  INTERESTED
+  NOT_INTERESTED
+  FOLLOW_UP_NEEDED
+  WRONG_NUMBER
+}
+
+enum DormantReason {
+  NO_RESPONSE
+  NOT_INTERESTED
+  RISKY_CLIENT
+  OTHER
+}
+
 model LeadEvent {
   id         String      @id @default(auto()) @map("_id") @db.ObjectId
   leadId     String      @db.ObjectId
@@ -39,11 +64,15 @@ model LeadEvent {
   type       LeadEventType
   occurredAt DateTime    @default(now())
 
-  // history payloads
+  // free text & tags
   text       String?
   tags       String[]
+
+  // change snapshots (STATUS_CHANGE, BIO_UPDATED, etc.)
   prev       Json?
   next       Json?
+
+  // structured meta (channel/outcome/followup)
   meta       Json?
 
   @@index([leadId, occurredAt])

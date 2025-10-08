@@ -9,7 +9,12 @@ import { ChangeStageInput } from './dto/change-stage.input';
 import { CreateIpkLeaddInput } from './dto/create-lead.input';
 import { LeadListArgs } from './dto/lead-list.args';
 import { LeadPhoneInput } from './dto/lead-phone.input';
-import { LeadEventType } from './enums/ipk-leadd.enum';
+import {
+  DormantReason,
+  InteractionChannel,
+  InteractionOutcome,
+  LeadEventType,
+} from './enums/ipk-leadd.enum';
 
 // function pad2(n: number) {
 //   return String(n).padStart(2, '0');
@@ -462,18 +467,60 @@ export class IpkLeaddService {
   }
 
   async addInteraction(
-    leadId: string,
-    text: string,
-    tags: string[] = [],
+    params: {
+      leadId: string;
+      text: string;
+      tags?: string[];
+      channel?: InteractionChannel | null;
+      outcome?: InteractionOutcome | null;
+      nextFollowUpAt?: Date | null;
+      dormantReason?: DormantReason | null;
+    },
     authorId?: string | null,
   ) {
+    const {
+      leadId,
+      text,
+      tags = [],
+      channel,
+      outcome,
+      nextFollowUpAt,
+      dormantReason,
+    } = params;
+
+    const autoTags = [
+      ...(channel ? [String(channel)] : []),
+      ...(outcome ? [`OUTCOME_${outcome}`] : []),
+    ];
+    const normalizedTags = Array.from(new Set([...tags, ...autoTags]));
+
+    const meta: Record<string, unknown> = {};
+    if (channel) meta.channel = channel;
+    if (outcome) meta.outcome = outcome;
+    if (nextFollowUpAt) meta.nextFollowUpAt = nextFollowUpAt.toISOString();
+    if (dormantReason) meta.dormantReason = dormantReason;
+
+    const leadUpdate: Prisma.IpkLeaddUpdateInput = { lastSeenAt: new Date() };
+    if (nextFollowUpAt) {
+      leadUpdate.approachAt = nextFollowUpAt;
+    }
+
+    await this.prisma.ipkLeadd.update({
+      where: { id: leadId },
+      data: leadUpdate,
+    });
+
+    const metaPayload =
+      Object.keys(meta).length > 0 ? (meta as Prisma.InputJsonValue) : undefined;
+
     return this.prisma.leadEvent.create({
       data: {
         leadId,
         authorId: authorId ?? null,
         type: LeadEventType.INTERACTION as $Enums.LeadEventType,
         text,
-        tags,
+        tags: normalizedTags,
+        meta: metaPayload,
       },
     });
   }

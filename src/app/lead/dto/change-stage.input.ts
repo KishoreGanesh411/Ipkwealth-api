@@ -1,8 +1,6 @@
 // src/app/lead/dto/change-stage.input.ts
-import { Field, ID, InputType, registerEnumType } from '@nestjs/graphql';
+import { Field, ID, InputType } from '@nestjs/graphql';
 import { ClientStage, InteractionChannel } from '../enums/ipk-leadd.enum';
-
-registerEnumType(InteractionChannel, { name: 'InteractionChannel' });
 
 @InputType()
 export class ChangeStageInput {

@@ -1,4 +1,9 @@
 import { Field, ID, InputType } from '@nestjs/graphql';
+import {
+  DormantReason,
+  InteractionChannel,
+  InteractionOutcome,
+} from '../enums/ipk-leadd.enum';
 
 @InputType()
 export class LeadNoteInput {
@@ -22,6 +27,18 @@ export class LeadInteractionInput {
 
   @Field(() => [String], { defaultValue: [] })
   tags?: string[];
+
+  @Field(() => InteractionChannel, { nullable: true })
+  channel?: InteractionChannel;
+
+  @Field(() => InteractionOutcome, { nullable: true })
+  outcome?: InteractionOutcome;
+
+  @Field(() => Date, { nullable: true })
+  nextFollowUpAt?: Date;
+
+  @Field(() => DormantReason, { nullable: true })
+  dormantReason?: DormantReason;
 }
 
 @InputType()

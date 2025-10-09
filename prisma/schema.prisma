@@ -7,7 +7,6 @@ datasource db {
   provider = "mongodb"
   url      = env("DATABASE_URL")
 }
-
 enum UserRoles {
   ADMIN
   RM
@@ -18,16 +17,64 @@ enum UserRoles {
 enum LeadEventType {
   REVISIT
   NOTE
-  ASSIGNMENT
+  INTERACTION
   STATUS_CHANGE
+  ASSIGNMENT
+  PHONE_ADDED
+  PHONE_REMOVED
+  PHONE_MARKED_PRIMARY
+  REMARK_UPDATED
+  BIO_UPDATED
+  HISTORY_SNAPSHOT
+}
+
+enum InteractionChannel {
+  CALL
+  WHATSAPP
+  SMS
+  EMAIL
+  MEETING
+  OTHER
+}
+
+enum InteractionOutcome {
+  NO_ANSWER
+  ANSWERED
+  INTERESTED
+  NOT_INTERESTED
+  FOLLOW_UP_NEEDED
+  WRONG_NUMBER
+}
+
+enum DormantReason {
+  NO_RESPONSE
+  NOT_INTERESTED
+  RISKY_CLIENT
+  OTHER
 }
 
 model LeadEvent {
   id         String      @id @default(auto()) @map("_id") @db.ObjectId
   leadId     String      @db.ObjectId
+  lead       IpkLeadd    @relation(fields: [leadId], references: [id])
+
+  authorId   String?     @db.ObjectId
+  author     User?       @relation("LeadEventAuthor", fields: [authorId], references: [id])
+
   type       LeadEventType
   occurredAt DateTime    @default(now())
+
+  // free text & tags
+  text       String?
+  tags       String[]
+
+  // change snapshots (STATUS_CHANGE, BIO_UPDATED, etc.)
+  prev       Json?
+  next       Json?
+
+  // structured meta (channel/outcome/followup)
   meta       Json?
+
   @@index([leadId, occurredAt])
   @@map("lead_event")
 }
@@ -63,6 +110,17 @@ enum LeadStatus {
   OPEN
 }
 
+enum ClientStage {
+  FIRST_TALK_DONE
+  FOLLOWING_UP
+  CLIENT_INTERESTED
+  ACCOUNT_OPENED
+  NO_RESPONSE_DORMANT
+  NOT_INTERESTED_DORMANT
+  RISKY_CLIENT_DORMANT
+  HIBERNATED
+}
+
 model Counter {
   id      String @id @default(auto()) @map("_id") @db.ObjectId
   key     String @unique            // e.g. "lead_seq_2509"
@@ -81,9 +139,10 @@ model User {
   id        String    @id @default(auto()) @map("_id") @db.ObjectId
   archived  Boolean   @default(false)
   name      String
-  email     String
+  email     String   @unique
   role      UserRoles
-  firebaseUid   String?
+  firebaseUid String?   @unique
+  passwordHash String?
   gender    Gender?
   phone     String?
   status    Status     @default(ACTIVE)
@@ -95,8 +154,8 @@ model User {
 
   // relation
   assignedLeads IpkLeadd[] @relation("UserAssignedRm")
+  authoredLeadEvents LeadEvent[] @relation("LeadEventAuthor")
 
-  @@unique([email])
   @@index([role, status, archived])
   @@index([createdAt])
   @@map("user")
@@ -110,6 +169,8 @@ model IpkLeadd {
   name      String?
   email     String?
   phone     String
+  phoneNormalized String?
+  phones    LeadPhone[]
 
   leadCode  String?   // partial unique in DB (create outside Prisma if you prefer)
 
@@ -129,27 +190,58 @@ model IpkLeadd {
   clientTypes     String?
 
   remark    String?
+  bioText   String?
 
   assignedRmId String? @db.ObjectId
   assignedRm   User?   @relation("UserAssignedRm", fields: [assignedRmId], references: [id])
   assignedRM   String? // denormalized display name
 
   status    LeadStatus @default(PENDING)
+  clientStage ClientStage?
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
   archived  Boolean    @default(false)
 
   revisitCount  Int        @default(0)
-  lastSeenAt    DateTime?
   firstSeenAt   DateTime   @default(now())
-  phoneNormalized String?        // NEW: digits-only phone cache
-  reenterCount    Int     @default(0)  // NEW: how many times the same person re-entered
-  approachAt       DateTime?     // when the marketer approached / when row says "created_time" bulk register time xlxor csv 
-  clientQa         Json?         // e.g., ["Q1/A1", "Q2/A2"] or [{q, a}]
+  lastSeenAt    DateTime?
+  reenterCount  Int        @default(0)
+  approachAt    DateTime?
+  clientQa      Json?
+
+  events        LeadEvent[]
 
   @@index([leadSource])
   @@index([assignedRmId])
   @@index([createdAt])
   @@index([status])
   @@map("ipk_leadd")
+}
+
+enum PhoneLabel {
+  PRIMARY
+  MOBILE
+  WHATSAPP
+  WORK
+  HOME
+  OTHER
+}
+
+model LeadPhone {
+  id         String     @id @default(auto()) @map("_id") @db.ObjectId
+  leadId     String     @db.ObjectId
+  lead       IpkLeadd   @relation(fields: [leadId], references: [id])
+
+  label      PhoneLabel @default(MOBILE)
+  number     String
+  normalized String
+  isPrimary  Boolean    @default(false)
+  isWhatsapp Boolean    @default(false)
+  verifiedAt DateTime?
+
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  @@unique([leadId, normalized], map: "uniq_leadphone_lead_norm")
+  @@map("lead_phone")
 }

@@ -5,7 +5,9 @@ import {
   Int,
   GraphQLISODateTime,
 } from '@nestjs/graphql';
-import { LeadStatus } from '../enums/ipk-leadd.enum';
+import { ClientStage, LeadStatus } from '../enums/ipk-leadd.enum';
+import { LeadPhoneEntity } from './lead-phone.model';
+import { LeadEventEntity } from './lead-event.model';
 
 @ObjectType()
 export class IpkLeaddEntity {
@@ -72,8 +74,14 @@ export class IpkLeaddEntity {
   @Field(() => Int, { nullable: true })
   reenterCount?: number | null;
 
+  @Field(() => [LeadPhoneEntity], { nullable: 'itemsAndList' })
+  phones?: LeadPhoneEntity[] | null;
+
   @Field(() => String, { nullable: true })
   remark?: string | null;
+
+  @Field(() => String, { nullable: true })
+  bioText?: string | null;
 
   @Field(() => ID, { nullable: true })
   assignedRmId?: string | null;
@@ -83,6 +91,9 @@ export class IpkLeaddEntity {
 
   @Field(() => LeadStatus)
   status!: LeadStatus;
+
+  @Field(() => ClientStage, { nullable: true })
+  clientStage?: ClientStage | null;
 
   @Field(() => GraphQLISODateTime)
   approachAt?: Date | null;
@@ -104,4 +115,7 @@ export class IpkLeaddEntity {
 
   @Field(() => GraphQLISODateTime, { nullable: true })
   lastSeenAt?: Date | null;
+
+  @Field(() => [LeadEventEntity], { nullable: 'itemsAndList' })
+  events?: LeadEventEntity[] | null;
 }

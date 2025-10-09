@@ -1,9 +1,8 @@
 import { InputType, Field, PartialType } from '@nestjs/graphql';
-import { IsEmail, IsEnum, IsOptional, IsString } from 'class-validator';
+import { IsEmail, IsEnum, IsOptional, IsString, MinLength } from 'class-validator';
 import { CreateUserInput } from './create-user.dto';
 import { Status, UserRoles } from '../enums/user.enums';
 import { Gender } from 'src/app/enums/common.enum';
-import { $Enums } from '@prisma/client';
 
 @InputType()
 export class UpdateUserDto extends PartialType(CreateUserInput) {
@@ -20,7 +19,7 @@ export class UpdateUserDto extends PartialType(CreateUserInput) {
   @Field(() => UserRoles, { nullable: true })
   @IsOptional()
   @IsEnum(UserRoles)
-  role?: $Enums.UserRoles;
+  role?: UserRoles;
 
   // Toggle helper (service maps this to Status)
   @Field({ nullable: true })
@@ -30,7 +29,7 @@ export class UpdateUserDto extends PartialType(CreateUserInput) {
   @Field(() => Gender, { nullable: true })
   @IsOptional()
   @IsEnum(Gender)
-  gender?: $Enums.Gender;
+  gender?: Gender;
 
   @Field(() => String, { nullable: true })
   @IsOptional()
@@ -39,12 +38,20 @@ export class UpdateUserDto extends PartialType(CreateUserInput) {
   @Field(() => Status, { nullable: true })
   @IsOptional()
   @IsEnum(Status)
-  status?: $Enums.Status;
+  status?: Status;
 
   @Field({ nullable: true })
   @IsOptional()
   archived?: boolean;
+
   @Field({ nullable: true })
   @IsOptional()
   firebaseUid?: string;
+
+  // Optional password change handled via Firebase + DB hash update
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsString()
+  @MinLength(8)
+  newPassword?: string;
 }

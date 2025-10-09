@@ -7,8 +7,10 @@ import { makeMonthlyLeadKey, pad4 } from '../../common/leadcode.util';
 import { normalizePhone, parseApproachAt } from '../common/phone.util';
 import { ChangeStageInput } from './dto/change-stage.input';
 import { CreateIpkLeaddInput } from './dto/create-lead.input';
+import { CreateLeadDto } from './dto/create-lead.dto';
 import { LeadListArgs } from './dto/lead-list.args';
 import { LeadPhoneInput } from './dto/lead-phone.input';
+import { UpdateLeadDto } from './dto/update-lead.dto';
 import {
   DormantReason,
   InteractionChannel,
@@ -30,6 +32,90 @@ export class IpkLeaddService {
   private buildName(f?: string | null, l?: string | null, fb?: string | null) {
     const s = [f, l].filter(Boolean).join(' ');
     return s || fb || undefined;
+  }
+
+  async createLead(input: CreateLeadDto) {
+    const approachAt = parseApproachAt(input.approachAt);
+    const payload: CreateIpkLeaddInput = {
+      ...input,
+      approachAt: approachAt ?? undefined,
+    } as unknown as CreateIpkLeaddInput;
+
+    return this.createPendingLead(payload);
+  }
+
+  async findAllLeads(includeArchived = false) {
+    return this.prisma.ipkLeadd.findMany({
+      where: includeArchived ? undefined : { archived: false },
+      orderBy: { createdAt: 'desc' },
+      include: { assignedRm: true },
+    });
+  }
+
+  async findLeadById(id: string) {
+    return this.prisma.ipkLeadd.findUnique({
+      where: { id },
+      include: { assignedRm: true, phones: true, events: true },
+    });
+  }
+
+  async updateLead(id: string, input: UpdateLeadDto) {
+    const data = this.buildLeadUpdateData(input);
+    if (Object.keys(data).length === 0) {
+      return this.findLeadById(id);
+    }
+
+    return this.prisma.ipkLeadd.update({
+      where: { id },
+      data,
+      include: { assignedRm: true },
+    });
+  }
+
+  async removeLead(id: string) {
+    return this.prisma.ipkLeadd.update({
+      where: { id },
+      data: { archived: true, status: $Enums.LeadStatus.CLOSED },
+      include: { assignedRm: true },
+    });
+  }
+
+  private buildLeadUpdateData(input: UpdateLeadDto): Prisma.IpkLeaddUpdateInput {
+    const data: Prisma.IpkLeaddUpdateInput = {};
+
+    if (input.firstName !== undefined) data.firstName = input.firstName ?? null;
+    if (input.lastName !== undefined) data.lastName = input.lastName ?? null;
+    if (input.name !== undefined) data.name = input.name ?? null;
+    if (input.email !== undefined) data.email = input.email ?? null;
+    if (input.leadSource !== undefined) data.leadSource = input.leadSource;
+    if (input.referralCode !== undefined) data.referralCode = input.referralCode ?? null;
+    if (input.gender !== undefined) data.gender = (input.gender as $Enums.Gender | null) ?? null;
+    if (input.age !== undefined) data.age = input.age ?? null;
+    if (input.location !== undefined) data.location = input.location ?? null;
+    if (input.profession !== undefined) data.profession = (input.profession as $Enums.Profession | null) ?? null;
+    if (input.companyName !== undefined) data.companyName = input.companyName ?? null;
+    if (input.designation !== undefined) data.designation = input.designation ?? null;
+    if (input.product !== undefined) data.product = (input.product as $Enums.Product | null) ?? null;
+    if (input.investmentRange !== undefined) data.investmentRange = input.investmentRange ?? null;
+    if (input.sipAmount !== undefined) data.sipAmount = input.sipAmount ?? null;
+    if (input.clientTypes !== undefined) data.clientTypes = input.clientTypes ?? null;
+    if (input.remark !== undefined) data.remark = input.remark ?? null;
+    if (input.bioText !== undefined) data.bioText = input.bioText ?? null;
+
+    if (input.phone !== undefined) {
+      data.phone = input.phone ?? null;
+      data.phoneNormalized = normalizePhone(input.phone) ?? null;
+    }
+
+    if (input.approachAt !== undefined) {
+      data.approachAt = parseApproachAt(input.approachAt) ?? null;
+    }
+
+    if (input.clientQa !== undefined) {
+      data.clientQa = input.clientQa ? (input.clientQa as any) : null;
+    }
+
+    return data;
   }
 
   /** Create OPEN lead if new; if same phone exists, treat as RE-ENTRY */
@@ -72,6 +158,7 @@ export class IpkLeaddService {
           sipAmount: (input.sipAmount as number | null) ?? existing.sipAmount ?? null,
           clientTypes: input.clientTypes ?? existing.clientTypes,
           remark: input.remark ?? existing.remark,
+          bioText: input.bioText ?? existing.bioText,
 
           phoneNormalized: pn ?? existing.phoneNormalized,
           archived: false,
@@ -113,6 +200,7 @@ export class IpkLeaddService {
 
         clientTypes: input.clientTypes ?? null,
         remark: input.remark ?? null,
+        bioText: input.bioText ?? null,
 
         leadCode: null,
         assignedRmId: null,

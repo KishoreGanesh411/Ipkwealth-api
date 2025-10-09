@@ -12,6 +12,7 @@ type BulkImportResult {
 input BulkLeadRowInput {
   age: Float
   approachAt: DateTime
+  bioText: String
   clientQa: [ClientQaInput!]
   clientTypes: String
   companyName: String
@@ -65,6 +66,7 @@ enum ClientStage {
 input CreateIpkLeaddInput {
   age: Float
   approachAt: DateTime
+  bioText: String
   clientQa: [ClientQaInput!]
   clientTypes: String
   companyName: String

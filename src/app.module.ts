@@ -8,6 +8,7 @@ import { FirebaseModule } from './app/core/firebase/firebase.module';
 import { GraphqlModule } from './app/core/graphql/graphql.module';
 import './app/enums/app.enum';
 import { IpkLeaddModule } from './app/lead/ipk-leadd.module';
+import { RmModule } from './app/salesrm/rm.module';
 import { UserModule } from './app/user/user-api.module';
 import { UserApiService } from './app/user/user-api.service';
 
@@ -20,6 +21,7 @@ import { UserApiService } from './app/user/user-api.service';
     AuthModule,
 
     IpkLeaddModule,
+    RmModule,
     UserModule,
   ],
   controllers: [AppController],

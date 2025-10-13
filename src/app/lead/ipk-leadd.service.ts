@@ -6,8 +6,8 @@ import { DbSeqService } from '../../common/db-seq.service';
 import { makeMonthlyLeadKey, pad4 } from '../../common/leadcode.util';
 import { normalizePhone, parseApproachAt } from '../common/phone.util';
 import { ChangeStageInput } from './dto/change-stage.input';
-import { CreateIpkLeaddInput } from './dto/create-lead.input';
 import { CreateLeadDto } from './dto/create-lead.dto';
+import { CreateIpkLeaddInput } from './dto/create-lead.input';
 import { LeadListArgs } from './dto/lead-list.args';
 import { LeadPhoneInput } from './dto/lead-phone.input';
 import { UpdateLeadDto } from './dto/update-lead.dto';
@@ -92,10 +92,12 @@ export class IpkLeaddService {
     if (input.gender !== undefined) data.gender = (input.gender as $Enums.Gender | null) ?? null;
     if (input.age !== undefined) data.age = input.age ?? null;
     if (input.location !== undefined) data.location = input.location ?? null;
-    if (input.profession !== undefined) data.profession = (input.profession as $Enums.Profession | null) ?? null;
+    if (input.profession !== undefined)
+      data.profession = (input.profession as $Enums.Profession | null) ?? null;
     if (input.companyName !== undefined) data.companyName = input.companyName ?? null;
     if (input.designation !== undefined) data.designation = input.designation ?? null;
-    if (input.product !== undefined) data.product = (input.product as $Enums.Product | null) ?? null;
+    if (input.product !== undefined)
+      data.product = (input.product as $Enums.Product | null) ?? null;
     if (input.investmentRange !== undefined) data.investmentRange = input.investmentRange ?? null;
     if (input.sipAmount !== undefined) data.sipAmount = input.sipAmount ?? null;
     if (input.clientTypes !== undefined) data.clientTypes = input.clientTypes ?? null;
@@ -566,15 +568,7 @@ export class IpkLeaddService {
     },
     authorId?: string | null,
   ) {
-    const {
-      leadId,
-      text,
-      tags = [],
-      channel,
-      outcome,
-      nextFollowUpAt,
-      dormantReason,
-    } = params;
+    const { leadId, text, tags = [], channel, outcome, nextFollowUpAt, dormantReason } = params;
 
     const autoTags = [
       ...(channel ? [String(channel)] : []),
@@ -598,8 +592,7 @@ export class IpkLeaddService {
       data: leadUpdate,
     });
 
-    const metaPayload =
-      Object.keys(meta).length > 0 ? (meta as Prisma.InputJsonValue) : undefined;
+    const metaPayload = Object.keys(meta).length > 0 ? (meta as Prisma.InputJsonValue) : undefined;
 
     return this.prisma.leadEvent.create({
       data: {
@@ -761,7 +754,7 @@ export class IpkLeaddService {
 
     // Build an informative text line for the timeline
     const summaryText = [
-      `Stage → ${stage}`,
+      `Stage: ${stage}`,
       typeof productExplained === 'boolean'
         ? `Product explained: ${productExplained ? 'Yes' : 'No'}`
         : null,

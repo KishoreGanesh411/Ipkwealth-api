@@ -47,6 +47,11 @@ input ClientQaInput {
   question: String!
 }
 
+type ClientQaItem {
+  answer: String!
+  question: String!
+}
+
 input ClientQaItemInput {
   answer: String!
   question: String!
@@ -156,12 +161,12 @@ type InviteRmPayload {
 
 type IpkLeaddEntity {
   age: Int
-  approachAt: DateTime!
+  approachAt: DateTime
   archived: Boolean!
   assignedRM: String
   assignedRmId: ID
   bioText: String
-  clientQa: [String!]
+  clientQa: [ClientQaItem]
   clientStage: ClientStage
   clientTypes: String
   companyName: String

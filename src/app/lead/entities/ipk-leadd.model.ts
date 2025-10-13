@@ -1,13 +1,16 @@
-import {
-  ObjectType,
-  Field,
-  ID,
-  Int,
-  GraphQLISODateTime,
-} from '@nestjs/graphql';
+import { ObjectType, Field, ID, Int, GraphQLISODateTime } from '@nestjs/graphql';
 import { ClientStage, LeadStatus } from '../enums/ipk-leadd.enum';
 import { LeadPhoneEntity } from './lead-phone.model';
 import { LeadEventEntity } from './lead-event.model';
+
+@ObjectType()
+export class ClientQaItem {
+  @Field(() => String)
+  question!: string;
+
+  @Field(() => String)
+  answer!: string;
+}
 
 @ObjectType()
 export class IpkLeaddEntity {
@@ -95,11 +98,11 @@ export class IpkLeaddEntity {
   @Field(() => ClientStage, { nullable: true })
   clientStage?: ClientStage | null;
 
-  @Field(() => GraphQLISODateTime)
+  @Field(() => GraphQLISODateTime, { nullable: true })
   approachAt?: Date | null;
 
-  @Field(() => [String], { nullable: true })
-  clientQa?: string[] | null;
+  @Field(() => [ClientQaItem], { nullable: 'itemsAndList' })
+  clientQa?: ClientQaItem[] | null;
 
   @Field(() => GraphQLISODateTime)
   createdAt!: Date;

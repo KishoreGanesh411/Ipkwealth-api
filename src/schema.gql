@@ -331,6 +331,8 @@ type Query {
   getUser(id: ID!, withLeads: Boolean! = false): UserEntity
   getUsers(withLeads: Boolean! = false): [UserEntity!]!
   ipkLeadds: [IpkLeaddEntity!]!
+  lead(id: ID!): IpkLeaddEntity!
+  leadDetailWithTimeline(eventsLimit: Int, leadId: ID!): IpkLeaddEntity!
   leads(args: LeadListArgs!): LeadPage!
   leadsOpen: [IpkLeaddEntity!]!
   me: UserEntity!

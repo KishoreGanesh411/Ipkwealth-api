@@ -342,7 +342,8 @@ export class IpkLeaddService {
     }
     // --------------------------------------------------------------------
 
-    const [items, total] = await this.prisma.$transaction([
+    // Avoid Mongo transactions for read-only ops; run in parallel instead
+    const [items, total] = await Promise.all([
       this.prisma.ipkLeadd.findMany({
         where,
         orderBy: { createdAt: 'desc' },
@@ -501,13 +502,12 @@ export class IpkLeaddService {
     const phone = await this.prisma.leadPhone.findUnique({ where: { id: phoneId } });
     if (!phone) throw new Error('Phone not found');
 
-    await this.prisma.$transaction([
-      this.prisma.leadPhone.updateMany({
-        where: { leadId: phone.leadId, NOT: { id: phoneId } },
-        data: { isPrimary: false },
-      }),
-      this.prisma.leadPhone.update({ where: { id: phoneId }, data: { isPrimary: true } }),
-    ]);
+    // Perform sequential updates to avoid transactions on Mongo
+    await this.prisma.leadPhone.updateMany({
+      where: { leadId: phone.leadId, NOT: { id: phoneId } },
+      data: { isPrimary: false },
+    });
+    await this.prisma.leadPhone.update({ where: { id: phoneId }, data: { isPrimary: true } });
 
     await this.prisma.leadEvent.create({
       data: {
@@ -866,7 +866,8 @@ export class IpkLeaddService {
       where.AND = [{ OR: dormantOr }];
     }
 
-    const [items, total] = await this.prisma.$transaction([
+    // Avoid Mongo transactions for read-only ops; run in parallel instead
+    const [items, total] = await Promise.all([
       this.prisma.ipkLeadd.findMany({
         where,
         orderBy: { createdAt: 'desc' },
@@ -878,5 +879,40 @@ export class IpkLeaddService {
     ]);
 
     return { items, page, pageSize, total };
+  }
+
+  // --- Access helper: only Admin can see all; RM can see only their leads ---
+  private ensureCanViewLead(
+    user: { id: string; role: $Enums.UserRoles } | null | undefined,
+    lead: { assignedRmId: string | null },
+  ) {
+    if (!user?.id) return; // let resolver's guard handle unauthenticated
+    if (user.role === $Enums.UserRoles.ADMIN || user.role === $Enums.UserRoles.MARKETING) return;
+    if (user.role === $Enums.UserRoles.RM && lead.assignedRmId === user.id) return;
+    // STAFF or other RMs looking at someone else’s lead are blocked
+    throw new Error('You do not have permission to view this lead');
+  }
+
+  // --- Read a single lead with nested detail for the profile page ---
+  async getLeadDetailWithTimeline(params: { leadId: string; eventsLimit?: number }) {
+    const { leadId, eventsLimit = 50 } = params;
+
+    const lead = await this.prisma.ipkLeadd.findUnique({
+      where: { id: leadId },
+      include: {
+        assignedRm: { select: { id: true, name: true, email: true, phone: true } },
+        phones: {
+          orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],
+        },
+        events: {
+          orderBy: { occurredAt: 'desc' },
+          take: Math.max(1, Math.min(200, eventsLimit)),
+        },
+      },
+    });
+
+    if (!lead) throw new Error('Lead not found');
+
+    return lead;
   }
 }

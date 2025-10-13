@@ -19,7 +19,8 @@
     "prisma:studio": "npx prisma studio --schema prisma/schema.prisma",
     "api": "npm run prisma:db:push && npm run dev",
     "sync:users": "ts-node -r tsconfig-paths/register src/scripts/sync-users-firebase.ts",
-    "update-firebase-email": "ts-node scripts/update-firebase-email.ts"
+    "update-firebase-email": "ts-node scripts/update-firebase-email.ts",
+    "generate:schema": "ts-node -r tsconfig-paths/register src/scripts/generate-schema.ts"
   },
   "dependencies": {
     "@apollo/server": "^4.12.2",

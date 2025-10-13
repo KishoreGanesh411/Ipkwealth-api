@@ -1,5 +1,5 @@
 import { ForbiddenException, UnauthorizedException, UseGuards } from '@nestjs/common';
-import { Args, ID, Mutation, Parent, Query, ResolveField, Resolver } from '@nestjs/graphql';
+import { Args, ID, Int, Mutation, Parent, Query, ResolveField, Resolver } from '@nestjs/graphql';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { FirebaseAuthGuard } from '../core/firebase/firebase-auth.guard';
 import { UserEntity } from '../user/entities/user.entity';
@@ -201,5 +201,36 @@ export class IpkLeaddResolver {
     normalizedArgs.pageSize = normalizedArgs.pageSize ?? 10;
 
     return this.service.listForRm(user.id, normalizedArgs);
+  }
+  @UseGuards(FirebaseAuthGuard)
+  @Query(() => IpkLeaddEntity, { name: 'lead' })
+  async lead(@Args('id', { type: () => ID }) id: string, @CurrentUser() user: UserEntity) {
+    const data = await this.service.findLeadById(id);
+    if (!data) throw new UnauthorizedException('Lead not found');
+
+    // Access: Admin/Marketing can view all; RM only their leads
+    if (user.role !== UserRoles.ADMIN && user.role !== UserRoles.MARKETING) {
+      if (!(user.role === UserRoles.RM && data.assignedRmId === user.id)) {
+        throw new ForbiddenException('You do not have permission to view this lead');
+      }
+    }
+    return data;
+  }
+
+  @UseGuards(FirebaseAuthGuard)
+  @Query(() => IpkLeaddEntity, { name: 'leadDetailWithTimeline' })
+  async leadDetailWithTimeline(
+    @Args('leadId', { type: () => ID }) leadId: string,
+    @Args('eventsLimit', { type: () => Int, nullable: true }) eventsLimit = 50,
+    @CurrentUser() user: UserEntity,
+  ) {
+    const data = await this.service.getLeadDetailWithTimeline({ leadId, eventsLimit });
+    // Access: Admin/Marketing can view all; RM only their leads
+    if (user.role !== UserRoles.ADMIN && user.role !== UserRoles.MARKETING) {
+      if (!(user.role === UserRoles.RM && data.assignedRmId === user.id)) {
+        throw new ForbiddenException('You do not have permission to view this lead');
+      }
+    }
+    return data;
   }
 }

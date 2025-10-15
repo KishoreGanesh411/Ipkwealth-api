@@ -1,7 +1,7 @@
 import { ObjectType, Field, ID, Int, GraphQLISODateTime } from '@nestjs/graphql';
 import { ClientStage, LeadStatus } from '../enums/ipk-leadd.enum';
 import { LeadPhoneEntity } from './lead-phone.model';
-import { LeadEventEntity } from './lead-event.model';
+import { LeadEventEntity } from '../../lead_event/entities/lead-event.model';
 
 @ObjectType()
 export class ClientQaItem {

@@ -1,5 +1,5 @@
 import { ObjectType, Field, ID, GraphQLISODateTime } from '@nestjs/graphql';
-import { LeadEventType } from '../enums/ipk-leadd.enum';
+import { LeadEventType } from '../../lead/enums/ipk-leadd.enum';
 import { GraphQLJSON } from 'graphql-scalars';
 
 @ObjectType()
@@ -34,4 +34,3 @@ export class LeadEventEntity {
   @Field(() => GraphQLJSON, { nullable: true })
   meta?: any | null;
 }
-

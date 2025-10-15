@@ -3,7 +3,7 @@ import {
   DormantReason,
   InteractionChannel,
   InteractionOutcome,
-} from '../enums/ipk-leadd.enum';
+} from '../../lead/enums/ipk-leadd.enum';
 
 @InputType()
 export class LeadNoteInput {

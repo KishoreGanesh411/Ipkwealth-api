@@ -10,13 +10,13 @@ import {
   LeadInteractionInput,
   LeadNoteInput,
   UpdateLeadClientQaInput,
-} from './dto/lead-event.input';
+} from '../lead_event/dto/lead-event.input';
 import { LeadListArgs } from './dto/lead-list.args';
 import { LeadPhoneInput, UpdateLeadBioInput, UpdateLeadRemarkInput } from './dto/lead-phone.input';
 import { ReassignLeadInput } from './dto/reassign-lead.input';
 import { BulkImportResult } from './entities/bulk-result.model';
 import { IpkLeaddEntity } from './entities/ipk-leadd.model';
-import { LeadEventEntity } from './entities/lead-event.model';
+import { LeadEventEntity } from '../lead_event/entities/lead-event.model';
 import { LeadPage } from './entities/lead-page.model';
 import { LeadPhoneEntity } from './entities/lead-phone.model';
 import { LeadStatus } from './enums/ipk-leadd.enum';

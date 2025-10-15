@@ -10,12 +10,14 @@ import { UserModule } from '../user/user-api.module';
 import { LeadController } from './lead.controller';
 import { IpkLeaddResolver } from './lead.resolver';
 import { IpkLeaddService } from './ipk-leadd.service';
+import { LeadEventModule } from '../lead_event/lead-event.module';
 
 @Module({
   imports: [
     PrismaAppModule,
     CommonModule,
     forwardRef(() => AuthModule),
+    LeadEventModule,
     // Ensure FirebaseAuthGuard deps (UserApiService) are resolvable here
     forwardRef(() => UserModule),
   ],

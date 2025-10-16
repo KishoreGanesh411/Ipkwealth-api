@@ -16,8 +16,9 @@ const isProd = !!environment.production;
       sortSchema: true,
       introspection: true, // allows Apollo Sandbox & tools in dev
       csrfPrevention: false, // avoid 400 errors from CSRF plugin
+      context: ({ req, res }) => ({ req, res }),
     }),
   ],
   exports: [GraphQLModule],
 })
-export class GraphqlModule {}
+export class GraphqlModule { }

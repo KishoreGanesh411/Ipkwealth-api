@@ -1,45 +1,46 @@
-import { InputType, Field } from '@nestjs/graphql';
-import {
-  IsEmail,
-  IsEnum,
-  IsNotEmpty,
-  IsOptional,
-  IsString,
-} from 'class-validator';
-import { Status, UserRoles } from '../enums/user.enums';
+import { Field, InputType } from '@nestjs/graphql';
+import { IsBoolean, IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, MinLength } from 'class-validator';
 import { Gender } from '../../enums/common.enum';
-import { $Enums } from '@prisma/client';
+import { Status, UserRoles } from '../enums/user.enums';
 
 @InputType()
 export class CreateUserInput {
-  @Field()
+  @Field(() => String)
   @IsString()
   @IsNotEmpty()
   name!: string;
 
-  @Field()
+  @Field(() => String)
   @IsEmail()
   email!: string;
 
+  @Field(() => String)
+  @IsString()
+  @MinLength(8)
+  // @Matches(/^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/)
+  password!: string;
+
   @Field(() => UserRoles)
   @IsEnum(UserRoles)
-  role!: $Enums.UserRoles;
+  role!: UserRoles;
+
+  @Field(() => String, { nullable: true })
+  @IsOptional()
+  @IsString()
+  phone?: string;
 
   @Field(() => Gender, { nullable: true })
   @IsOptional()
   @IsEnum(Gender)
-  gender?: $Enums.Gender;
-
-  @Field(() => String, { nullable: true })
-  @IsOptional()
-  phone?: string;
+  gender?: Gender;
 
   @Field(() => Status, { defaultValue: Status.ACTIVE })
-  @IsEnum(Status)
-  status!: $Enums.Status;
-
-  // You usually don't expose this on create; keeping archived false in service.
-  @Field({ defaultValue: false })
   @IsOptional()
+  @IsEnum(Status)
+  status?: Status;
+
+  @Field(() => Boolean, { defaultValue: false })
+  @IsOptional()
+  @IsBoolean()
   archived?: boolean;
 }

@@ -1,7 +1,7 @@
 import { Body, Controller, Delete, Get, Param, Post } from '@nestjs/common';
-import { UserApiService } from './user-api.service';
 import { CreateUserInput } from './dto/create-user.dto';
-import { UserEntity } from './entities/user.entity';
+import { CreateUserPayload, UserEntity } from './entities/user.entity';
+import { UserApiService } from './user-api.service';
 // import { FirebaseAuthGuard } from '../auth/firebase-auth.guard';
 
 @Controller('users')
@@ -10,7 +10,7 @@ export class UserController {
 
   // Create a user
   @Post()
-  create(@Body() dto: CreateUserInput): Promise<UserEntity> {
+  async create(@Body() dto: CreateUserInput): Promise<CreateUserPayload> {
     return this.users.createUser(dto);
   }
 

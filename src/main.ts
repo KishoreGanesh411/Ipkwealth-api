@@ -8,11 +8,7 @@ async function bootstrap() {
     origin: ['http://localhost:5173', 'https://studio.apollographql.com'],
     credentials: true,
     methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
-    allowedHeaders: [
-      'Content-Type',
-      'Authorization',
-      'Apollo-Require-Preflight',
-    ],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Apollo-Require-Preflight'],
     exposedHeaders: ['Content-Length', 'Date'],
   });
   await app.listen(3333);

@@ -1,5 +1,4 @@
 import { Field, GraphQLISODateTime, InputType } from '@nestjs/graphql';
-import { GraphQLJSON } from 'graphql-scalars';
 
 @InputType()
 export class CreateIpkLeaddInput {
@@ -25,6 +24,7 @@ export class CreateIpkLeaddInput {
   @Field({ nullable: true }) sipAmount?: number;
   @Field({ nullable: true }) clientTypes?: string;
   @Field({ nullable: true }) remark?: string;
+  @Field({ nullable: true }) bioText?: string;
 
   @Field(() => GraphQLISODateTime, { nullable: true })
   approachAt?: Date | null;

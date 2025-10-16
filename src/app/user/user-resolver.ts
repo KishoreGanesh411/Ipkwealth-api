@@ -1,26 +1,24 @@
+import { HttpException, UseGuards } from '@nestjs/common';
 import {
-  Resolver,
-  Query,
-  Mutation,
   Args,
   ID,
-  ResolveField,
+  Mutation,
   Parent,
-  Context,
+  Query,
+  ResolveField,
+  Resolver,
 } from '@nestjs/graphql';
-import { UserApiService } from './user-api.service';
-import { UserEntity } from './entities/user.entity';
-import { CreateUserInput } from './dto/create-user.dto';
-import { UpdateUserDto } from './dto/update-user.dto';
+import { $Enums } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
+import { CurrentUser } from '../auth/current-user.decorator';
+import { FirebaseAuthGuard } from '../core/firebase/firebase-auth.guard';
 import { IpkLeaddEntity } from '../lead/entities/ipk-leadd.model';
 import { LeadStatus as GqlLeadStatus } from '../lead/enums/ipk-leadd.enum';
-import { $Enums } from '@prisma/client';
-import { UseGuards } from '@nestjs/common';
-import { GqlAuthGuard } from '../auth/gql-auth.guard';
-import { CurrentUser } from '../auth/current-user.decorator';
-// import { FirebaseAuthGuard } from '../auth/firebase-auth.guard';
-// import { RolesGuard } from '../auth/roles.guard';
+import { CreateUserInput } from './dto/create-user.dto';
+import { InviteRmInput } from './dto/invite-rm.input';
+import { UpdateUserDto } from './dto/update-user.dto';
+import { CreateUserPayload, InviteRmPayload, SyncReport, UserEntity } from './entities/user.entity';
+import { UserApiService } from './user-api.service';
 
 function toGqlLeadStatus(s: $Enums.LeadStatus): GqlLeadStatus {
   switch (s) {
@@ -46,29 +44,53 @@ export class UserResolver {
     private readonly prisma: PrismaService,
   ) { }
 
-  @UseGuards(GqlAuthGuard)
-  @Query(() => UserEntity) // adjust to your GraphQL type
-  me(@CurrentUser() user: any) {
+  // ?? This triggers Firebase verification + upsert; CurrentUser returns DB user
+  @UseGuards(FirebaseAuthGuard)
+  @Query(() => UserEntity)
+  async me(@CurrentUser() user: UserEntity) {
     return user;
   }
-  /* ----------------------------- CREATE ----------------------------- */
-  @Mutation(() => UserEntity)
-  async createUser(@Args('input') input: CreateUserInput) {
-    return this.users.createUser(input);
+
+  // TODO: add role guard for admin-only access
+  @Mutation(() => CreateUserPayload)
+  async createUser(@Args('input') input: CreateUserInput): Promise<CreateUserPayload> {
+    try {
+      return await this.users.createUser(input);
+    } catch (error) {
+      return {
+        success: false,
+        message: this.resolveErrorMessage(error, 'Failed to create user'),
+        user: null,
+      };
+    }
   }
 
-  /* --------------------------- READ: ALL ---------------------------- */
+  @Mutation(() => String)
+  async generatePasswordResetLink(
+    @Args('email', { type: () => String }) email: string,
+  ): Promise<string> {
+    try {
+      return await this.users.generatePasswordResetLink(email);
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      const message = this.resolveErrorMessage(
+        error,
+        'Unable to generate password reset link',
+      );
+      throw new Error(message);
+    }
+  }
+
   @Query(() => [UserEntity])
   async getUsers(
     @Args('withLeads', { type: () => Boolean, defaultValue: false })
     withLeads: boolean,
   ): Promise<UserEntity[]> {
-    return withLeads
-      ? this.users.getAllUserWithLeads()
-      : this.users.getAllUser();
+    return withLeads ? this.users.getAllUserWithLeads() : this.users.getAllUser();
   }
 
-  /* --------------------------- READ: ONE ---------------------------- */
   @Query(() => UserEntity, { nullable: true })
   async getUser(
     @Args('id', { type: () => ID }) id: string,
@@ -78,7 +100,6 @@ export class UserResolver {
     return withLeads ? this.users.getUserWithLeads(id) : this.users.getUser(id);
   }
 
-  /* ----------------------------- UPDATE ---------------------------- */
   @Mutation(() => UserEntity)
   async updateUser(
     @Args('id', { type: () => ID }) id: string,
@@ -87,26 +108,38 @@ export class UserResolver {
     return this.users.updateUser(id, input);
   }
 
-  /* --------------------------- SOFT DELETE -------------------------- */
+  @Mutation(() => InviteRmPayload)
+  async inviteRm(
+    @Args('input') input: InviteRmInput,
+  ): Promise<InviteRmPayload> {
+    return this.users.inviteRm(input);
+  }
+
+  @Mutation(() => UserEntity)
+  async makeAdmin(@Args('id', { type: () => ID }) id: string): Promise<UserEntity> {
+    return this.users.makeAdmin(id);
+  }
+
+  @Mutation(() => SyncReport)
+  async syncUsersWithFirebase(): Promise<SyncReport> {
+    return this.users.syncUsersWithFirebase();
+  }
+
   @Mutation(() => UserEntity)
   async removeUser(@Args('id', { type: () => ID }) id: string) {
     return this.users.deleteUser(id);
   }
 
-  /* ----------------------------- LIST ACTIVE ------------------------ */
   @Query(() => [UserEntity])
   async getActiveUsers(): Promise<UserEntity[]> {
     return this.users.getActiveUsers();
   }
 
-  /* -------- Lazy field resolver for assignedLeads with enum mapping -------- */
   @ResolveField(() => [IpkLeaddEntity], {
     name: 'assignedLeads',
     nullable: 'itemsAndList',
   })
-  async resolveAssignedLeads(
-    @Parent() user: UserEntity,
-  ): Promise<IpkLeaddEntity[]> {
+  async resolveAssignedLeads(@Parent() user: UserEntity): Promise<IpkLeaddEntity[]> {
     const rows = await this.prisma.ipkLeadd.findMany({
       where: { assignedRmId: user.id, archived: false },
       orderBy: { createdAt: 'desc' },
@@ -133,25 +166,25 @@ export class UserResolver {
       sipAmount: r.sipAmount ?? null,
       clientTypes: r.clientTypes ?? null,
       remark: r.remark ?? null,
-
       assignedRmId: r.assignedRmId ?? null,
       assignedRM: r.assignedRM ?? null,
-
-      // NEW: expose these so other UIs that reuse this resolver also see them
       firstSeenAt: r.firstSeenAt ?? null,
       lastSeenAt: r.lastSeenAt ?? null,
       reenterCount: r.reenterCount ?? 0,
-
       status: toGqlLeadStatus(r.status),
       createdAt: r.createdAt,
       updatedAt: r.updatedAt,
       archived: r.archived,
     }));
   }
-  // @Query(() => UserEntity)
-  // @UseGuards(FirebaseAuthGuard, RolesGuard)
-  // async currentUser(@Context('req') req) {
-  //   const dbUser = req.user.dbUser;
-  //   return dbUser;
-  // }
+
+  private resolveErrorMessage(error: unknown, fallback: string): string {
+    if (error instanceof HttpException) {
+      return error.message;
+    }
+    if (error instanceof Error && error.message) {
+      return error.message;
+    }
+    return fallback;
+  }
 }

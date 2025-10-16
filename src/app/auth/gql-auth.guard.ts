@@ -1,40 +1,58 @@
-// src/app/auth/gql-auth.guard.ts
-import {
-  Injectable,
-  CanActivate,
+﻿import {
   ExecutionContext,
   Inject,
+  Injectable,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { GqlExecutionContext } from '@nestjs/graphql';
 import * as admin from 'firebase-admin';
+import {
+  FirebaseAuthGuard,
+  FirebaseAuthRequest,
+} from '../core/firebase/firebase-auth.guard';
 import { FIREBASE_ADMIN } from '../core/firebase/firebase-admin.provider';
-import { PrismaService } from 'prisma/prisma.service';
+import { UserApiService } from '../user/user-api.service';
 
 @Injectable()
-export class GqlAuthGuard implements CanActivate {
+export class GqlAuthGuard extends FirebaseAuthGuard {
   constructor(
-    private readonly prisma: PrismaService,
-    @Inject(FIREBASE_ADMIN) private readonly fb: typeof admin,
-  ) { }
+    @Inject(FIREBASE_ADMIN) firebase: typeof admin,
+    users: UserApiService,
+  ) {
+    super(firebase, users);
+  }
 
-  async canActivate(ctx: ExecutionContext): Promise<boolean> {
-    const gqlCtx = GqlExecutionContext.create(ctx);
-    const req = gqlCtx.getContext().req as {
-      headers?: Record<string, string>;
-      user?: unknown;
-    };
+  protected getRequest(context: ExecutionContext): FirebaseAuthRequest {
+    const gqlCtx = GqlExecutionContext.create(context);
+    return gqlCtx.getContext().req as FirebaseAuthRequest;
+  }
 
-    const auth = req.headers?.authorization ?? '';
-    const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
-    if (!token) return false;
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const activated = await super.canActivate(context);
+    if (!activated) {
+      return false;
+    }
 
-    const decoded = await this.fb.auth().verifyIdToken(token);
-    const user = await this.prisma.user.findFirst({
-      where: { firebaseUid: decoded.uid, archived: false },
-    });
-    if (!user) return false;
+    const request = this.getRequest(context);
+    const firebaseUser = request.firebaseUser;
 
-    req.user = user;
+    if (!firebaseUser) {
+      throw new UnauthorizedException(
+        'Firebase authentication missing user payload',
+      );
+    }
+
+    const user = await this.users.upsertFromFirebase(firebaseUser);
+
+    if (!user || user.archived) {
+      throw new UnauthorizedException(
+        'User is not allowed to access this resource',
+      );
+    }
+
+    request.dbUser = user;
+    request.user = user;
+
     return true;
   }
 }

@@ -1,17 +1,21 @@
 import { registerEnumType } from '@nestjs/graphql';
 import {
-  ProfessionEnum,
-  ProductEnum,
-  LeadStatus,
+  ApplicationStatusEnum,
+  KycStatusEnum,
+} from '../account_application/enums/application.enum';
+import {
   ClientStage,
-  PhoneLabel,
-  LeadEventType,
+  DormantReason,
   InteractionChannel,
   InteractionOutcome,
-  DormantReason,
+  LeadEventType,
+  LeadStatus,
+  PhoneLabel,
+  ProductEnum,
+  ProfessionEnum,
 } from '../lead/enums/ipk-leadd.enum';
+import { Status, UserRoles } from '../user/enums/user.enums';
 import { Gender } from './common.enum';
-import { UserRoles, Status } from '../user/enums/user.enums';
 
 registerEnumType(Gender, { name: 'Gender' });
 registerEnumType(ProfessionEnum, { name: 'ProfessionEnum' });
@@ -25,3 +29,5 @@ registerEnumType(LeadEventType, { name: 'LeadEventType' });
 registerEnumType(InteractionChannel, { name: 'InteractionChannel' });
 registerEnumType(InteractionOutcome, { name: 'InteractionOutcome' });
 registerEnumType(DormantReason, { name: 'DormantReason' });
+registerEnumType(ApplicationStatusEnum, { name: 'ApplicationStatus' });
+registerEnumType(KycStatusEnum, { name: 'KycStatus' });

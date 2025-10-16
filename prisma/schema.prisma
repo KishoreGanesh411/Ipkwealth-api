@@ -28,6 +28,20 @@ enum LeadEventType {
   HISTORY_SNAPSHOT
 }
 
+// Account application lifecycle
+enum ApplicationStatus {
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  DECLINED
+}
+
+enum KycStatus {
+  PENDING
+  VERIFIED
+  FAILED
+}
+
 enum InteractionChannel {
   CALL
   WHATSAPP
@@ -224,6 +238,12 @@ model IpkLeadd {
 
   events        LeadEvent[]
 
+  // Optional scoring for prioritization
+  leadScore Int?
+
+  // Account applications opened by this lead
+  applications AccountApplication[]
+
   @@index([leadSource])
   @@index([assignedRmId])
   @@index([createdAt])
@@ -257,4 +277,38 @@ model LeadPhone {
 
   @@unique([leadId, normalized], map: "uniq_leadphone_lead_norm")
   @@map("lead_phone")
+}
+
+// Account opening application tied to a lead
+model AccountApplication {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+
+  leadId    String   @db.ObjectId
+  lead      IpkLeadd @relation(fields: [leadId], references: [id])
+
+  applicationStatus ApplicationStatus @default(SUBMITTED)
+  kycStatus         KycStatus         @default(PENDING)
+
+  // Sensitive fields should be encrypted client-side or via service
+  encryptedPan      String?
+  encryptedAadhaar  String?
+
+  // Documents and preferences stored as JSON blobs
+  documents         Json?
+  riskProfile       String?
+  investmentPreferences Json?
+  consentAudit      Json?
+
+  submittedAt DateTime? @default(now())
+  reviewedAt  DateTime?
+  approvedAt  DateTime?
+  declinedAt  DateTime?
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([leadId])
+  @@index([applicationStatus])
+  @@index([kycStatus])
+  @@map("account_application")
 }

@@ -296,7 +296,7 @@ export class IpkLeaddService {
       leadCode = `${prefix}${pad4(start)}`;
     }
 
-    return this.prisma.ipkLeadd.update({
+    const updated = await this.prisma.ipkLeadd.update({
       where: { id },
       data: {
         leadCode,
@@ -307,6 +307,14 @@ export class IpkLeaddService {
       },
       include: { assignedRm: true },
     });
+
+    // Update RM lastAssignedAt for diagnostics
+    await this.prisma.user.update({ where: { id: rm.id }, data: { lastAssignedAt: now } });
+
+    // Emit assignment event
+    await this.leadEvents.assignment(id, rm.id, rm.name, null);
+
+    return updated;
   }
 
   async assignLeads(ids: string[], concurrency = 10) {
@@ -578,20 +586,52 @@ export class IpkLeaddService {
   ) {
     const { leadId, text, tags = [], channel, outcome, nextFollowUpAt, dormantReason } = params;
 
-    const leadUpdate: Prisma.IpkLeaddUpdateInput = { lastSeenAt: new Date() };
+    const now = new Date();
+    const prev = await this.prisma.ipkLeadd.findUnique({ where: { id: leadId }, select: { status: true, clientStage: true, approachAt: true, lastSeenAt: true, revisitCount: true } });
+
+    const leadUpdate: Prisma.IpkLeaddUpdateInput = { lastSeenAt: now };
     if (nextFollowUpAt) {
       leadUpdate.approachAt = nextFollowUpAt;
     }
 
-    await this.prisma.ipkLeadd.update({
-      where: { id: leadId },
-      data: leadUpdate,
-    });
+    // Outcome-based transitions
+    if (outcome === InteractionOutcome.INTERESTED) {
+      (leadUpdate as any).clientStage = $Enums.ClientStage.CLIENT_INTERESTED;
+    } else if (outcome === InteractionOutcome.NOT_INTERESTED) {
+      (leadUpdate as any).clientStage = $Enums.ClientStage.NOT_INTERESTED_DORMANT;
+      (leadUpdate as any).status = $Enums.LeadStatus.ON_HOLD;
+    } else if (outcome === InteractionOutcome.FOLLOW_UP_NEEDED) {
+      (leadUpdate as any).clientStage = $Enums.ClientStage.FOLLOWING_UP;
+    } else if (outcome === InteractionOutcome.NO_ANSWER || outcome === InteractionOutcome.WRONG_NUMBER) {
+      (leadUpdate as any).revisitCount = { increment: 1 } as any;
+    }
 
-    return this.leadEvents.addInteraction(
+    const next = await this.prisma.ipkLeadd.update({ where: { id: leadId }, data: leadUpdate });
+
+    // Log interaction event first
+    const interaction = await this.leadEvents.addInteraction(
       { leadId, text, tags, channel, outcome, nextFollowUpAt, dormantReason },
       authorId,
     );
+
+    // If stage/status changed due to outcome, snapshot it
+    if (prev && (prev.clientStage !== next.clientStage || prev.status !== next.status)) {
+      await this.leadEvents.stageChangeSnapshot({
+        leadId,
+        summaryText: `Outcome transition: ${outcome ?? 'UNKNOWN'}`,
+        tags: ['STAGE','OUTCOME', ...(channel ? [String(channel)] : [])],
+        prev: { status: prev.status, clientStage: prev.clientStage, approachAt: prev.approachAt, lastSeenAt: prev.lastSeenAt },
+        next: { status: next.status, clientStage: next.clientStage, approachAt: (next as any).approachAt, lastSeenAt: next.lastSeenAt },
+        meta: { fromInteractionId: interaction.id, outcome: outcome ?? null, channel: channel ?? null },
+        authorId,
+      });
+      // If status changed, also add a lightweight status-change event
+      if (prev.status !== next.status) {
+        await this.leadEvents.statusChanged(leadId, prev.status as any, next.status as any, authorId ?? null);
+      }
+    }
+
+    return interaction;
   }
 
   async updateRemark(leadId: string, remark: string, authorId?: string | null) {

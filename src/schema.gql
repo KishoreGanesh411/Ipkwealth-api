@@ -2,6 +2,28 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
 # ------------------------------------------------------
 
+type AccountApplicationEntity {
+  applicationStatus: ApplicationStatus!
+  approvedAt: DateTime
+  createdAt: DateTime!
+  declinedAt: DateTime
+  documents: String
+  id: ID!
+  kycStatus: KycStatus!
+  leadId: ID!
+  reviewedAt: DateTime
+  riskProfile: String
+  submittedAt: DateTime
+  updatedAt: DateTime!
+}
+
+enum ApplicationStatus {
+  APPROVED
+  DECLINED
+  SUBMITTED
+  UNDER_REVIEW
+}
+
 type BulkImportResult {
   created: Int!
   errors: [String!]!
@@ -68,6 +90,16 @@ enum ClientStage {
   NOT_INTERESTED_DORMANT
   NO_RESPONSE_DORMANT
   RISKY_CLIENT_DORMANT
+}
+
+input CreateAccountApplicationInput {
+  aadhaar: String
+  consentAuditJson: String
+  documentsJson: String
+  investmentPreferencesJson: String
+  leadId: ID!
+  pan: String
+  riskProfile: String
 }
 
 input CreateIpkLeaddInput {
@@ -209,6 +241,12 @@ The `JSON` scalar type represents JSON values as specified by [ECMA-404](http://
 """
 scalar JSON @specifiedBy(url: "http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf")
 
+enum KycStatus {
+  FAILED
+  PENDING
+  VERIFIED
+}
+
 type LeadEventEntity {
   authorId: ID
   id: ID!
@@ -304,6 +342,7 @@ type Mutation {
   assignLead(id: ID!): IpkLeaddEntity!
   assignLeads(ids: [ID!]!): [IpkLeaddEntity!]!
   changeStage(input: ChangeStageInput!): IpkLeaddEntity!
+  createAccountApplication(input: CreateAccountApplicationInput!): AccountApplicationEntity!
   createIpkLeadd(input: CreateIpkLeaddInput!): IpkLeaddEntity!
   createLeadsBulk(rows: [BulkLeadRowInput!]!): BulkImportResult!
   createUser(input: CreateUserInput!): CreateUserPayload!
@@ -316,6 +355,8 @@ type Mutation {
   removeUser(id: ID!): UserEntity!
   setLeadPhoneWhatsapp(isWhatsapp: Boolean!, phoneId: ID!): LeadPhoneEntity!
   syncUsersWithFirebase: SyncReport!
+  updateAccountApplicationStatus(input: UpdateApplicationStatusInput!): AccountApplicationEntity!
+  updateAccountKycStatus(input: UpdateKycStatusInput!): AccountApplicationEntity!
   updateLeadBio(input: UpdateLeadBioInput!): IpkLeaddEntity!
   updateLeadClientQa(input: UpdateLeadClientQaInput!): IpkLeaddEntity!
   updateLeadRemark(input: UpdateLeadRemarkInput!): IpkLeaddEntity!
@@ -349,6 +390,7 @@ enum PhoneLabel {
 }
 
 type Query {
+  accountApplicationsByLead(leadId: ID!): [AccountApplicationEntity!]!
   getActiveUsers: [UserEntity!]!
   getUser(id: ID!, withLeads: Boolean! = false): UserEntity
   getUsers(withLeads: Boolean! = false): [UserEntity!]!
@@ -378,6 +420,18 @@ type SyncReport {
   missingFirebase: [String!]!
   updatedDisplayName: Float!
   updatedEmail: Float!
+}
+
+input UpdateApplicationStatusInput {
+  applicationId: ID!
+  remark: String
+  status: ApplicationStatus!
+}
+
+input UpdateKycStatusInput {
+  applicationId: ID!
+  kyc: KycStatus!
+  remark: String
 }
 
 input UpdateLeadBioInput {

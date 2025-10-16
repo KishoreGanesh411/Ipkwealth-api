@@ -22,7 +22,7 @@ export class LeadEventService {
   }
 
   // ----- Generic factory -----
-  private createEvent(data: {
+  createEvent(data: {
     leadId: string;
     authorId?: string | null;
     type: $Enums.LeadEventType;

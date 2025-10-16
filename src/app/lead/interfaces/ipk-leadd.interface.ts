@@ -41,6 +41,7 @@ export interface IpkLeaddModel {
   sipAmount?: number | null;
   clientTypes?: string | null;
   referralCode?: string | null;
+  referralName?: string | null;
   leadSource: string;
   remark?: string | null;
   bioText?: string | null;

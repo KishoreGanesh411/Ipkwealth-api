@@ -86,6 +86,8 @@ export class IpkLeaddService {
     if (input.email !== undefined) data.email = input.email ?? null;
     if (input.leadSource !== undefined) data.leadSource = input.leadSource;
     if (input.referralCode !== undefined) data.referralCode = input.referralCode ?? null;
+    if ((input as any).referralName !== undefined)
+      (data as any).referralName = (input as any).referralName ?? null;
     if (input.gender !== undefined) data.gender = (input.gender as $Enums.Gender | null) ?? null;
     if (input.age !== undefined) data.age = input.age ?? null;
     if (input.location !== undefined) data.location = input.location ?? null;
@@ -114,7 +116,42 @@ export class IpkLeaddService {
       data.clientQa = input.clientQa ? (input.clientQa as any) : null;
     }
 
+    if ((input as any).occupations !== undefined) {
+      const occs = this.sanitizeOccupations((input as any).occupations);
+      // For updates on Mongo composite lists, direct assignment replaces the array
+      (data as any).occupations = occs ?? [];
+    }
+
     return data;
+  }
+
+  private sanitizeOccupations(
+    occs?:
+      | Array<{
+        profession?: string | null;
+        companyName?: string | null;
+        designation?: string | null;
+        startedAt?: Date | string | null;
+        endedAt?: Date | string | null;
+      }>
+      | null,
+  ) {
+    if (!occs || !Array.isArray(occs)) return null;
+    const toDate = (v: any) => {
+      if (!v) return undefined;
+      if (v instanceof Date) return isNaN(v.getTime()) ? undefined : v;
+      const d = new Date(v);
+      return isNaN(d.getTime()) ? undefined : d;
+    };
+    return occs
+      .map((o) => ({
+        profession: (o.profession as $Enums.Profession | undefined) ?? undefined,
+        companyName: o.companyName ?? undefined,
+        designation: o.designation ?? undefined,
+        startedAt: toDate(o.startedAt),
+        endedAt: toDate(o.endedAt),
+      }))
+      .filter((o) => !!o.profession);
   }
 
   /** Create OPEN lead if new; if same phone exists, treat as RE-ENTRY */
@@ -122,6 +159,7 @@ export class IpkLeaddService {
     const pn = normalizePhone(input.phone);
     const approachAt = parseApproachAt(input.approachAt);
     const clientQa = input.clientQa ?? null;
+    const occupations = this.sanitizeOccupations((input as any).occupations) ?? [];
     const existing = await this.prisma.ipkLeadd.findFirst({
       where: {
         OR: [pn ? { phoneNormalized: pn } : undefined, { phone: input.phone }].filter(
@@ -147,6 +185,7 @@ export class IpkLeaddService {
           email: input.email ?? existing.email,
           location: input.location ?? existing.location,
           referralCode: input.referralCode ?? existing.referralCode ?? null,
+          referralName: (input as any).referralName ?? (existing as any).referralName ?? null,
           gender: (input.gender as $Enums.Gender) ?? existing.gender ?? null,
           age: (input.age as number | null) ?? existing.age ?? null,
           profession: (input.profession as $Enums.Profession) ?? existing.profession ?? null,
@@ -158,6 +197,7 @@ export class IpkLeaddService {
           clientTypes: input.clientTypes ?? existing.clientTypes,
           remark: input.remark ?? existing.remark,
           bioText: input.bioText ?? existing.bioText,
+          occupations: (input as any).occupations ? occupations : ((existing as any).occupations ?? []),
 
           phoneNormalized: pn ?? existing.phoneNormalized,
           archived: false,
@@ -168,7 +208,7 @@ export class IpkLeaddService {
           lastSeenAt: new Date(),
           approachAt: approachAt ?? existing.approachAt ?? null,
           clientQa: clientQa ?? (existing.clientQa as any) ?? null,
-        },
+        } as any,
         include: { assignedRm: true },
       });
     }
@@ -185,6 +225,7 @@ export class IpkLeaddService {
         leadSource: input.leadSource,
 
         referralCode: input.referralCode ?? null,
+        referralName: (input as any).referralName ?? null,
 
         gender: (input.gender as $Enums.Gender) ?? null,
         age: (input.age as number | null) ?? null,
@@ -200,6 +241,7 @@ export class IpkLeaddService {
         clientTypes: input.clientTypes ?? null,
         remark: input.remark ?? null,
         bioText: input.bioText ?? null,
+        occupations,
 
         leadCode: null,
         assignedRmId: null,
@@ -213,7 +255,7 @@ export class IpkLeaddService {
         lastSeenAt: new Date(),
         approachAt: approachAt ?? null,
         clientQa: clientQa ? (clientQa as any) : null,
-      },
+      } as any,
       include: { assignedRm: true },
     });
   }

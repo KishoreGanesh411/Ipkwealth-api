@@ -62,6 +62,11 @@ export class CreateLeadDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(128)
+  referralName?: string;
+
+  @IsOptional()
+  @IsString()
   @MaxLength(16)
   gender?: string;
 
@@ -129,4 +134,36 @@ export class CreateLeadDto {
   @ValidateNested({ each: true })
   @Type(() => ClientQaDto)
   clientQa?: ClientQaDto[];
+
+  // New: occupations array
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => OccupationDto)
+  occupations?: OccupationDto[];
+}
+
+export class OccupationDto {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(64)
+  profession!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  companyName?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  designation?: string;
+
+  @IsOptional()
+  @IsDateString()
+  startedAt?: string;
+
+  @IsOptional()
+  @IsDateString()
+  endedAt?: string;
 }

@@ -11,6 +11,7 @@ export class CreateIpkLeaddInput {
   @Field() leadSource!: string;
 
   @Field({ nullable: true }) referralCode?: string;
+  @Field({ nullable: true }) referralName?: string;
   @Field({ nullable: true }) gender?: string;
   @Field({ nullable: true }) age?: number;
   @Field({ nullable: true }) location?: string;
@@ -31,12 +32,34 @@ export class CreateIpkLeaddInput {
 
   @Field(() => [ClientQaInput], { nullable: true })
   clientQa?: ClientQaInput[];
+
+  // New: occupations array
+  @Field(() => [OccupationInput], { nullable: true })
+  occupations?: OccupationInput[];
 }
 
 @InputType()
 export class ClientQaInput {
   @Field() question!: string;
   @Field() answer!: string;
+}
+
+@InputType()
+export class OccupationInput {
+  @Field(() => String)
+  profession!: string; // Prefer ProfessionEnum on client; string here for compatibility
+
+  @Field({ nullable: true })
+  companyName?: string;
+
+  @Field({ nullable: true })
+  designation?: string;
+
+  @Field(() => GraphQLISODateTime, { nullable: true })
+  startedAt?: Date;
+
+  @Field(() => GraphQLISODateTime, { nullable: true })
+  endedAt?: Date;
 }
 @InputType()
 export class BulkLeadRowInput extends CreateIpkLeaddInput { }

@@ -25,10 +25,12 @@ input BulkLeadRowInput {
   leadSource: String!
   location: String
   name: String
+  occupations: [OccupationInput!]
   phone: String!
   product: String
   profession: String
   referralCode: String
+  referralName: String
   remark: String
   sipAmount: Float
 }
@@ -84,10 +86,12 @@ input CreateIpkLeaddInput {
   leadSource: String!
   location: String
   name: String
+  occupations: [OccupationInput!]
   phone: String!
   product: String
   profession: String
   referralCode: String
+  referralName: String
   remark: String
   sipAmount: Float
 }
@@ -185,6 +189,7 @@ type IpkLeaddEntity {
   leadSource: String!
   location: String
   name: String
+  occupations: [OccupationEntity]
   phone: String!
   phoneNormalized: String
   phones: [LeadPhoneEntity]
@@ -192,6 +197,7 @@ type IpkLeaddEntity {
   profession: String
   reenterCount: Int
   referralCode: String
+  referralName: String
   remark: String
   sipAmount: Int
   status: LeadStatus!
@@ -315,6 +321,22 @@ type Mutation {
   updateLeadRemark(input: UpdateLeadRemarkInput!): IpkLeaddEntity!
   updateLeadStatus(leadId: ID!, status: LeadStatus!): IpkLeaddEntity!
   updateUser(id: ID!, input: UpdateUserDto!): UserEntity!
+}
+
+type OccupationEntity {
+  companyName: String
+  designation: String
+  endedAt: DateTime
+  profession: String!
+  startedAt: DateTime
+}
+
+input OccupationInput {
+  companyName: String
+  designation: String
+  endedAt: DateTime
+  profession: String!
+  startedAt: DateTime
 }
 
 enum PhoneLabel {

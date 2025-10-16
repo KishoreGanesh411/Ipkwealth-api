@@ -96,6 +96,15 @@ enum Profession {
   EMPLOYEE
 }
 
+// Embedded composite type for MongoDB
+type Occupation {
+  profession  Profession
+  companyName String?
+  designation String?
+  startedAt   DateTime?
+  endedAt     DateTime?
+}
+
 enum Product {
   IAP
   SIP
@@ -179,11 +188,15 @@ model IpkLeadd {
   location  String?
 
   referralCode String?
+  referralName String?
   leadSource   String
 
   profession      Profession?
   companyName     String?
   designation     String?
+
+  // New embedded array of occupations
+  occupations     Occupation[]
   product         Product?
   investmentRange String?
   sipAmount       Int?

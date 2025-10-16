@@ -157,6 +157,7 @@ export class UserResolver {
       age: r.age ?? null,
       location: r.location ?? null,
       referralCode: r.referralCode ?? null,
+      referralName: (r as any).referralName ?? null,
       leadSource: r.leadSource,
       profession: r.profession ?? null,
       companyName: r.companyName ?? null,

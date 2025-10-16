@@ -47,6 +47,9 @@ export class IpkLeaddEntity {
   @Field(() => String, { nullable: true })
   referralCode?: string | null;
 
+  @Field(() => String, { nullable: true })
+  referralName?: string | null;
+
   @Field(() => String)
   leadSource!: string;
 
@@ -121,4 +124,25 @@ export class IpkLeaddEntity {
 
   @Field(() => [LeadEventEntity], { nullable: 'itemsAndList' })
   events?: LeadEventEntity[] | null;
+
+  @Field(() => [OccupationEntity], { nullable: 'itemsAndList' })
+  occupations?: OccupationEntity[] | null;
+}
+
+@ObjectType()
+export class OccupationEntity {
+  @Field(() => String)
+  profession!: string;
+
+  @Field(() => String, { nullable: true })
+  companyName?: string | null;
+
+  @Field(() => String, { nullable: true })
+  designation?: string | null;
+
+  @Field(() => GraphQLISODateTime, { nullable: true })
+  startedAt?: Date | null;
+
+  @Field(() => GraphQLISODateTime, { nullable: true })
+  endedAt?: Date | null;
 }

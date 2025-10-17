@@ -1,5 +1,5 @@
 // src/app/lead/app/ipk-leadd.service.ts
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { $Enums, Prisma } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
 import { DbSeqService } from '../../common/db-seq.service';
@@ -18,18 +18,24 @@ import { LeadEventService } from '../lead_event/lead-event.service';
 //   return String(n).padStart(2, '0');
 // }
 
-@Injectable()
-export class IpkLeaddService {
+  @Injectable()
+  export class IpkLeaddService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly dbseq: DbSeqService,
     private readonly leadEvents: LeadEventService,
   ) { }
 
-  private buildName(f?: string | null, l?: string | null, fb?: string | null) {
-    const s = [f, l].filter(Boolean).join(' ');
-    return s || fb || undefined;
-  }
+    private buildName(f?: string | null, l?: string | null, fb?: string | null) {
+      const s = [f, l].filter(Boolean).join(' ');
+      return s || fb || undefined;
+    }
+
+    // Mongo ObjectId strings are 24 hex characters
+    private isValidObjectId(id: string | null | undefined): boolean {
+      if (!id || typeof id !== 'string') return false;
+      return /^[a-fA-F0-9]{24}$/.test(id);
+    }
 
   async createLead(input: CreateLeadDto) {
     const approachAt = parseApproachAt(input.approachAt);
@@ -50,6 +56,8 @@ export class IpkLeaddService {
   }
 
   async findLeadById(id: string) {
+    // Avoid Prisma P2023 by validating Mongo ObjectId
+    if (!this.isValidObjectId(id)) return null;
     return this.prisma.ipkLeadd.findUnique({
       where: { id },
       include: { assignedRm: true, phones: true, events: true },
@@ -867,6 +875,11 @@ export class IpkLeaddService {
   // --- Read a single lead with nested detail for the profile page ---
   async getLeadDetailWithTimeline(params: { leadId: string; eventsLimit?: number }) {
     const { leadId, eventsLimit = 50 } = params;
+
+    // Guard against invalid Mongo ObjectId to avoid Prisma P2023
+    if (!this.isValidObjectId(leadId)) {
+      throw new BadRequestException('Invalid leadId');
+    }
 
     const lead = await this.prisma.ipkLeadd.findUnique({
       where: { id: leadId },

@@ -94,8 +94,8 @@ import { LeadEventService } from '../lead_event/lead-event.service';
     if (input.email !== undefined) data.email = input.email ?? null;
     if (input.leadSource !== undefined) data.leadSource = input.leadSource;
     if (input.referralCode !== undefined) data.referralCode = input.referralCode ?? null;
-    if ((input as any).referralName !== undefined)
-      (data as any).referralName = (input as any).referralName ?? null;
+    if (input.referralName !== undefined)
+      data.referralName = input.referralName ?? null;
     if (input.gender !== undefined) data.gender = (input.gender as $Enums.Gender | null) ?? null;
     if (input.age !== undefined) data.age = input.age ?? null;
     if (input.location !== undefined) data.location = input.location ?? null;
@@ -121,13 +121,12 @@ import { LeadEventService } from '../lead_event/lead-event.service';
     }
 
     if (input.clientQa !== undefined) {
-      data.clientQa = input.clientQa ? (input.clientQa as any) : null;
+      data.clientQa = (input.clientQa ?? null) as unknown as Prisma.InputJsonValue;
     }
 
-    if ((input as any).occupations !== undefined) {
-      const occs = this.sanitizeOccupations((input as any).occupations);
-      // For updates on Mongo composite lists, direct assignment replaces the array
-      (data as any).occupations = occs ?? [];
+    if (input.occupations !== undefined) {
+      const occs = this.sanitizeOccupations(input.occupations);
+      (data as Prisma.IpkLeaddUpdateInput).occupations = occs ?? [];
     }
 
     return data;
@@ -143,23 +142,24 @@ import { LeadEventService } from '../lead_event/lead-event.service';
         endedAt?: Date | string | null;
       }>
       | null,
-  ) {
+  ): Prisma.OccupationCreateInput[] | null {
     if (!occs || !Array.isArray(occs)) return null;
-    const toDate = (v: any) => {
+    const toDate = (v: unknown) => {
       if (!v) return undefined;
       if (v instanceof Date) return isNaN(v.getTime()) ? undefined : v;
-      const d = new Date(v);
+      const d = new Date(v as any);
       return isNaN(d.getTime()) ? undefined : d;
     };
-    return occs
+    const mapped = occs
       .map((o) => ({
-        profession: (o.profession as $Enums.Profession | undefined) ?? undefined,
+        profession: (o.profession as unknown as $Enums.Profession | undefined) ?? undefined,
         companyName: o.companyName ?? undefined,
         designation: o.designation ?? undefined,
         startedAt: toDate(o.startedAt),
         endedAt: toDate(o.endedAt),
       }))
-      .filter((o) => !!o.profession);
+      .filter((o) => !!o.profession) as Array<Required<Pick<Prisma.OccupationCreateInput, 'profession'>> & Omit<Prisma.OccupationCreateInput, 'profession'>>;
+    return mapped as Prisma.OccupationCreateInput[];
   }
 
   /** Create OPEN lead if new; if same phone exists, treat as RE-ENTRY */
@@ -167,7 +167,7 @@ import { LeadEventService } from '../lead_event/lead-event.service';
     const pn = normalizePhone(input.phone);
     const approachAt = parseApproachAt(input.approachAt);
     const clientQa = input.clientQa ?? null;
-    const occupations = this.sanitizeOccupations((input as any).occupations) ?? [];
+    const occupations = this.sanitizeOccupations(input.occupations) ?? [];
     const existing = await this.prisma.ipkLeadd.findFirst({
       where: {
         OR: [pn ? { phoneNormalized: pn } : undefined, { phone: input.phone }].filter(
@@ -193,7 +193,7 @@ import { LeadEventService } from '../lead_event/lead-event.service';
           email: input.email ?? existing.email,
           location: input.location ?? existing.location,
           referralCode: input.referralCode ?? existing.referralCode ?? null,
-          referralName: (input as any).referralName ?? (existing as any).referralName ?? null,
+          referralName: input.referralName ?? (existing as any).referralName ?? null,
           gender: (input.gender as $Enums.Gender) ?? existing.gender ?? null,
           age: (input.age as number | null) ?? existing.age ?? null,
           profession: (input.profession as $Enums.Profession) ?? existing.profession ?? null,
@@ -205,7 +205,7 @@ import { LeadEventService } from '../lead_event/lead-event.service';
           clientTypes: input.clientTypes ?? existing.clientTypes,
           remark: input.remark ?? existing.remark,
           bioText: input.bioText ?? existing.bioText,
-          occupations: (input as any).occupations ? occupations : ((existing as any).occupations ?? []),
+          occupations: input.occupations ? occupations : ((existing as any).occupations ?? []),
 
           phoneNormalized: pn ?? existing.phoneNormalized,
           archived: false,
@@ -215,8 +215,10 @@ import { LeadEventService } from '../lead_event/lead-event.service';
           reenterCount: { increment: 1 },
           lastSeenAt: new Date(),
           approachAt: approachAt ?? existing.approachAt ?? null,
-          clientQa: clientQa ?? (existing.clientQa as any) ?? null,
-        } as any,
+          clientQa: (input.clientQa !== undefined)
+            ? ((input.clientQa as unknown) as Prisma.InputJsonValue)
+            : ((existing.clientQa as unknown) as Prisma.InputJsonValue | null),
+        },
         include: { assignedRm: true },
       });
     }
@@ -233,7 +235,7 @@ import { LeadEventService } from '../lead_event/lead-event.service';
         leadSource: input.leadSource,
 
         referralCode: input.referralCode ?? null,
-        referralName: (input as any).referralName ?? null,
+        referralName: input.referralName ?? null,
 
         gender: (input.gender as $Enums.Gender) ?? null,
         age: (input.age as number | null) ?? null,
@@ -262,8 +264,8 @@ import { LeadEventService } from '../lead_event/lead-event.service';
         firstSeenAt: new Date(),
         lastSeenAt: new Date(),
         approachAt: approachAt ?? null,
-        clientQa: clientQa ? (clientQa as any) : null,
-      } as any,
+        clientQa: clientQa ? (clientQa as unknown as Prisma.InputJsonValue) : null,
+      },
       include: { assignedRm: true },
     });
   }
@@ -506,7 +508,7 @@ import { LeadEventService } from '../lead_event/lead-event.service';
 
     await this.leadEvents.phoneAdded(
       leadId,
-      { id: created.id, number: created.number, normalized: created.normalized, label: created.label as any },
+      { id: created.id, number: created.number, normalized: created.normalized, label: String(created.label) },
       authorId,
     );
 
@@ -532,7 +534,7 @@ import { LeadEventService } from '../lead_event/lead-event.service';
 
     await this.leadEvents.phoneRemoved(
       phone.leadId,
-      { id: phoneId, number: phone.number, label: phone.label as any },
+      { id: phoneId, number: phone.number, label: String(phone.label) },
       authorId,
     );
 
@@ -552,7 +554,7 @@ import { LeadEventService } from '../lead_event/lead-event.service';
 
     await this.leadEvents.phoneMarkedPrimary(
       phone.leadId,
-      { id: phoneId, number: phone.number, label: phone.label as any },
+      { id: phoneId, number: phone.number, label: String(phone.label) },
       authorId,
     );
 
@@ -604,14 +606,14 @@ import { LeadEventService } from '../lead_event/lead-event.service';
 
     // Outcome-based transitions
     if (outcome === InteractionOutcome.INTERESTED) {
-      (leadUpdate as any).clientStage = $Enums.ClientStage.CLIENT_INTERESTED;
+      leadUpdate.clientStage = $Enums.ClientStage.CLIENT_INTERESTED;
     } else if (outcome === InteractionOutcome.NOT_INTERESTED) {
-      (leadUpdate as any).clientStage = $Enums.ClientStage.NOT_INTERESTED_DORMANT;
-      (leadUpdate as any).status = $Enums.LeadStatus.ON_HOLD;
+      leadUpdate.clientStage = $Enums.ClientStage.NOT_INTERESTED_DORMANT;
+      leadUpdate.status = $Enums.LeadStatus.ON_HOLD;
     } else if (outcome === InteractionOutcome.FOLLOW_UP_NEEDED) {
-      (leadUpdate as any).clientStage = $Enums.ClientStage.FOLLOWING_UP;
+      leadUpdate.clientStage = $Enums.ClientStage.FOLLOWING_UP;
     } else if (outcome === InteractionOutcome.NO_ANSWER || outcome === InteractionOutcome.WRONG_NUMBER) {
-      (leadUpdate as any).revisitCount = { increment: 1 } as any;
+      leadUpdate.revisitCount = { increment: 1 } as Prisma.IntFieldUpdateOperationsInput;
     }
 
     const next = await this.prisma.ipkLeadd.update({ where: { id: leadId }, data: leadUpdate });
@@ -629,13 +631,13 @@ import { LeadEventService } from '../lead_event/lead-event.service';
         summaryText: `Outcome transition: ${outcome ?? 'UNKNOWN'}`,
         tags: ['STAGE','OUTCOME', ...(channel ? [String(channel)] : [])],
         prev: { status: prev.status, clientStage: prev.clientStage, approachAt: prev.approachAt, lastSeenAt: prev.lastSeenAt },
-        next: { status: next.status, clientStage: next.clientStage, approachAt: (next as any).approachAt, lastSeenAt: next.lastSeenAt },
+        next: { status: next.status, clientStage: next.clientStage, approachAt: next.approachAt, lastSeenAt: next.lastSeenAt },
         meta: { fromInteractionId: interaction.id, outcome: outcome ?? null, channel: channel ?? null },
         authorId,
       });
       // If status changed, also add a lightweight status-change event
       if (prev.status !== next.status) {
-        await this.leadEvents.statusChanged(leadId, prev.status as any, next.status as any, authorId ?? null);
+        await this.leadEvents.statusChanged(leadId, prev.status, next.status, authorId ?? null);
       }
     }
 
@@ -701,7 +703,7 @@ import { LeadEventService } from '../lead_event/lead-event.service';
     });
     const next = await this.prisma.ipkLeadd.update({
       where: { id: leadId },
-      data: { clientQa: items as any },
+      data: { clientQa: items as unknown as Prisma.InputJsonValue },
     });
     await this.leadEvents.clientQaUpdated(leadId, prev?.clientQa ?? null, next.clientQa ?? null, authorId);
     return next;

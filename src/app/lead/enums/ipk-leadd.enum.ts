@@ -12,12 +12,14 @@ export enum ProductEnum {
 export enum LeadStatus {
   PENDING = 'PENDING',
   ASSIGNED = 'ASSIGNED',
+  IN_PROGRESS = 'IN_PROGRESS',
   ON_HOLD = 'ON_HOLD',
   CLOSED = 'CLOSED',
   OPEN = 'OPEN',
 }
 
 export enum ClientStage {
+  NEW_LEAD = 'NEW_LEAD',
   FIRST_TALK_DONE = 'FIRST_TALK_DONE',
   FOLLOWING_UP = 'FOLLOWING_UP',
   CLIENT_INTERESTED = 'CLIENT_INTERESTED',

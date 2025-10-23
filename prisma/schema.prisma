@@ -128,12 +128,14 @@ enum Product {
 enum LeadStatus {
   PENDING
   ASSIGNED
+  IN_PROGRESS
   ON_HOLD
   CLOSED
   OPEN
 }
 
 enum ClientStage {
+  NEW_LEAD
   FIRST_TALK_DONE
   FOLLOWING_UP
   CLIENT_INTERESTED
@@ -235,6 +237,11 @@ model IpkLeadd {
   reenterCount  Int        @default(0)
   approachAt    DateTime?
   clientQa      Json?
+
+  // Engagement tracking
+  lastContactedAt DateTime?
+  contactAttempts Int?
+  nextActionDueAt DateTime?
 
   events        LeadEvent[]
 

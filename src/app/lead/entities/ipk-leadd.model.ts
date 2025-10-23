@@ -107,6 +107,15 @@ export class IpkLeaddEntity {
   @Field(() => [ClientQaItem], { nullable: 'itemsAndList' })
   clientQa?: ClientQaItem[] | null;
 
+  @Field(() => GraphQLISODateTime, { nullable: true })
+  lastContactedAt?: Date | null;
+
+  @Field(() => Int, { nullable: true })
+  contactAttempts?: number | null;
+
+  @Field(() => GraphQLISODateTime, { nullable: true })
+  nextActionDueAt?: Date | null;
+
   @Field(() => GraphQLISODateTime)
   createdAt!: Date;
 

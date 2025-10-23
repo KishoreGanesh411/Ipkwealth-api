@@ -1,10 +1,5 @@
 import { Gender } from 'src/app/enums/common.enum';
-import {
-  ClientStage,
-  LeadStatus,
-  ProductEnum,
-  ProfessionEnum,
-} from '../enums/ipk-leadd.enum';
+import { ClientStage, LeadStatus, ProductEnum, ProfessionEnum } from '../enums/ipk-leadd.enum';
 
 export interface ClientQaItem {
   question: string;
@@ -46,6 +41,9 @@ export interface IpkLeaddModel {
   remark?: string | null;
   bioText?: string | null;
   clientQa?: ClientQaItem[] | null;
+  lastContactedAt?: Date | null;
+  contactAttempts?: number | null;
+  nextActionDueAt?: Date | null;
   assignedRmId?: string | null;
   assignedRM?: string | null;
   status: LeadStatus;

@@ -87,6 +87,7 @@ enum ClientStage {
   FIRST_TALK_DONE
   FOLLOWING_UP
   HIBERNATED
+  NEW_LEAD
   NOT_INTERESTED_DORMANT
   NO_RESPONSE_DORMANT
   RISKY_CLIENT_DORMANT
@@ -206,6 +207,7 @@ type IpkLeaddEntity {
   clientStage: ClientStage
   clientTypes: String
   companyName: String
+  contactAttempts: Int
   createdAt: DateTime!
   designation: String
   email: String
@@ -215,12 +217,14 @@ type IpkLeaddEntity {
   gender: String
   id: ID!
   investmentRange: String
+  lastContactedAt: DateTime
   lastName: String
   lastSeenAt: DateTime
   leadCode: String
   leadSource: String!
   location: String
   name: String
+  nextActionDueAt: DateTime
   occupations: [OccupationEntity]
   phone: String!
   phoneNormalized: String
@@ -330,6 +334,7 @@ input LeadPhoneInput {
 enum LeadStatus {
   ASSIGNED
   CLOSED
+  IN_PROGRESS
   ON_HOLD
   OPEN
   PENDING

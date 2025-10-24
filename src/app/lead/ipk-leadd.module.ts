@@ -3,6 +3,7 @@ import { Module, forwardRef } from '@nestjs/common';
 import { PrismaService } from 'prisma/prisma.service';
 import { DbSeqService } from 'src/common/db-seq.service';
 import { AssignmentService } from './assignment.service';
+import { RolesGuard } from '../auth/roles.guard';
 import { PrismaAppModule } from 'prisma/prisma.module';
 import { CommonModule } from 'src/common/common.module';
 import { AuthModule } from '../auth/auth.module';
@@ -27,6 +28,7 @@ import { LeadEventModule } from '../lead_event/lead-event.module';
     PrismaService,
     DbSeqService,
     AssignmentService,
+    RolesGuard,
   ],
   controllers: [LeadController],
   exports: [IpkLeaddService],

@@ -40,4 +40,3 @@ export function decryptField(payload?: string | null): string | null {
   const plaintext = Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8');
   return plaintext;
 }
-

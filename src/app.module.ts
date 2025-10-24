@@ -29,4 +29,4 @@ import { UserApiService } from './app/user/user-api.service';
   controllers: [AppController],
   providers: [AppService, UserApiService],
 })
-export class AppModule { }
+export class AppModule {}

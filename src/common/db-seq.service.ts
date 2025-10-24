@@ -18,7 +18,7 @@ export class DbSeqService {
     size = 1,
     client?: Prisma.TransactionClient | PrismaService,
   ): Promise<{ start: number; end: number }> {
-    const c = (client ?? this.prisma) as any;
+    const c = client ?? this.prisma;
     const maxAttempts = 10;
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
@@ -40,8 +40,10 @@ export class DbSeqService {
         const end = updated.current;
         const start = end - size + 1;
         return { start, end };
-      } catch (e: any) {
-        if (e?.code === 'P2034') {
+      } catch (e: unknown) {
+        const code =
+          typeof e === 'object' && e && 'code' in e ? (e as { code?: string }).code : undefined;
+        if (code === 'P2034') {
           await sleep(Math.min(25 * (attempt + 1) ** 2, 300)); // small backoff
           continue;
         }

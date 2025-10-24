@@ -2,10 +2,11 @@ import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { GqlExecutionContext } from '@nestjs/graphql';
 import { ROLES_KEY } from './roles.decorator';
+import { FirebaseAuthRequest } from '../core/firebase/firebase-auth.guard';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
-  constructor(private reflector: Reflector) { }
+  constructor(private reflector: Reflector) {}
   canActivate(ctx: ExecutionContext): boolean {
     const roles = this.reflector.getAllAndOverride<string[]>(ROLES_KEY, [
       ctx.getHandler(),
@@ -13,8 +14,8 @@ export class RolesGuard implements CanActivate {
     ]);
     if (!roles || roles.length === 0) return true;
 
-    const req = GqlExecutionContext.create(ctx).getContext().req;
-    const user = req.user;
-    return !!user && roles.includes(user.role);
+    const req = GqlExecutionContext.create(ctx).getContext<{ req: FirebaseAuthRequest }>().req;
+    const user = req.user as { role?: string } | undefined;
+    return !!(user?.role && roles.includes(user.role));
   }
 }

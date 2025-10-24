@@ -62,4 +62,4 @@ export class OccupationInput {
   endedAt?: Date;
 }
 @InputType()
-export class BulkLeadRowInput extends CreateIpkLeaddInput { }
+export class BulkLeadRowInput extends CreateIpkLeaddInput {}

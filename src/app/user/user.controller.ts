@@ -6,7 +6,7 @@ import { UserApiService } from './user-api.service';
 
 @Controller('users')
 export class UserController {
-  constructor(private readonly users: UserApiService) { }
+  constructor(private readonly users: UserApiService) {}
 
   // Create a user
   @Post()

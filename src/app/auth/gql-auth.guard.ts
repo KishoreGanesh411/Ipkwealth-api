@@ -1,30 +1,19 @@
-﻿import {
-  ExecutionContext,
-  Inject,
-  Injectable,
-  UnauthorizedException,
-} from '@nestjs/common';
+﻿import { ExecutionContext, Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { GqlExecutionContext } from '@nestjs/graphql';
 import * as admin from 'firebase-admin';
-import {
-  FirebaseAuthGuard,
-  FirebaseAuthRequest,
-} from '../core/firebase/firebase-auth.guard';
+import { FirebaseAuthGuard, FirebaseAuthRequest } from '../core/firebase/firebase-auth.guard';
 import { FIREBASE_ADMIN } from '../core/firebase/firebase-admin.provider';
 import { UserApiService } from '../user/user-api.service';
 
 @Injectable()
 export class GqlAuthGuard extends FirebaseAuthGuard {
-  constructor(
-    @Inject(FIREBASE_ADMIN) firebase: typeof admin,
-    users: UserApiService,
-  ) {
+  constructor(@Inject(FIREBASE_ADMIN) firebase: typeof admin, users: UserApiService) {
     super(firebase, users);
   }
 
   protected getRequest(context: ExecutionContext): FirebaseAuthRequest {
     const gqlCtx = GqlExecutionContext.create(context);
-    return gqlCtx.getContext().req as FirebaseAuthRequest;
+    return gqlCtx.getContext<{ req: FirebaseAuthRequest }>().req;
   }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -37,17 +26,13 @@ export class GqlAuthGuard extends FirebaseAuthGuard {
     const firebaseUser = request.firebaseUser;
 
     if (!firebaseUser) {
-      throw new UnauthorizedException(
-        'Firebase authentication missing user payload',
-      );
+      throw new UnauthorizedException('Firebase authentication missing user payload');
     }
 
     const user = await this.users.upsertFromFirebase(firebaseUser);
 
     if (!user || user.archived) {
-      throw new UnauthorizedException(
-        'User is not allowed to access this resource',
-      );
+      throw new UnauthorizedException('User is not allowed to access this resource');
     }
 
     request.dbUser = user;

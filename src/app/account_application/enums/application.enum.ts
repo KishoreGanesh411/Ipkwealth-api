@@ -10,4 +10,3 @@ export enum KycStatusEnum {
   VERIFIED = 'VERIFIED',
   FAILED = 'FAILED',
 }
-

@@ -1,7 +1,7 @@
-import { ObjectType, Field, ID, Int, GraphQLISODateTime } from '@nestjs/graphql';
+import { Field, GraphQLISODateTime, ID, Int, ObjectType } from '@nestjs/graphql';
+import { LeadEventEntity } from '../../lead_event/entities/lead-event.model';
 import { ClientStage, LeadStatus } from '../enums/ipk-leadd.enum';
 import { LeadPhoneEntity } from './lead-phone.model';
-import { LeadEventEntity } from '../../lead_event/entities/lead-event.model';
 
 @ObjectType()
 export class ClientQaItem {
@@ -154,4 +154,37 @@ export class OccupationEntity {
 
   @Field(() => GraphQLISODateTime, { nullable: true })
   endedAt?: Date | null;
+}
+
+@ObjectType()
+export class AssignResult {
+  @Field(() => IpkLeaddEntity) lead!: IpkLeaddEntity;
+  @Field() message!: string;
+}
+
+@ObjectType()
+export class AssignBulkItemResult {
+  @Field(() => ID)
+  id!: string;
+
+  @Field(() => Boolean)
+  ok!: boolean;
+
+  @Field()
+  message!: string;
+}
+
+@ObjectType()
+export class AssignBulkResult {
+  @Field(() => [AssignBulkItemResult])
+  items!: AssignBulkItemResult[];
+
+  @Field(() => Int)
+  assigned!: number;
+
+  @Field(() => Int)
+  failed!: number;
+
+  @Field(() => [String])
+  errors!: string[];
 }

@@ -1,10 +1,12 @@
 // src/app/lead/app/ipk-leadd.service.ts
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { $Enums, Prisma } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
 import { DbSeqService } from '../../common/db-seq.service';
 import { makeMonthlyLeadKey, pad4 } from '../../common/leadcode.util';
 import { normalizePhone, parseApproachAt } from '../common/phone.util';
+import { AssignMode } from '../lead/enums/ipk-leadd.enum';
+import { LeadEventService } from '../lead_event/lead-event.service';
 import { ChangeStageInput } from './dto/change-stage.input';
 import { CreateLeadDto } from './dto/create-lead.dto';
 import { CreateIpkLeaddInput } from './dto/create-lead.input';
@@ -12,30 +14,28 @@ import { LeadListArgs } from './dto/lead-list.args';
 import { LeadPhoneInput } from './dto/lead-phone.input';
 import { UpdateLeadDto } from './dto/update-lead.dto';
 import { DormantReason, InteractionChannel, InteractionOutcome } from './enums/ipk-leadd.enum';
-import { LeadEventService } from '../lead_event/lead-event.service';
-
 // function pad2(n: number) {
 //   return String(n).padStart(2, '0');
 // }
 
-  @Injectable()
-  export class IpkLeaddService {
+@Injectable()
+export class IpkLeaddService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly dbseq: DbSeqService,
     private readonly leadEvents: LeadEventService,
-  ) { }
+  ) {}
 
-    private buildName(f?: string | null, l?: string | null, fb?: string | null) {
-      const s = [f, l].filter(Boolean).join(' ');
-      return s || fb || undefined;
-    }
+  private buildName(f?: string | null, l?: string | null, fb?: string | null) {
+    const s = [f, l].filter(Boolean).join(' ');
+    return s || fb || undefined;
+  }
 
-    // Mongo ObjectId strings are 24 hex characters
-    private isValidObjectId(id: string | null | undefined): boolean {
-      if (!id || typeof id !== 'string') return false;
-      return /^[a-fA-F0-9]{24}$/.test(id);
-    }
+  // Mongo ObjectId strings are 24 hex characters
+  private isValidObjectId(id: string | null | undefined): boolean {
+    if (!id || typeof id !== 'string') return false;
+    return /^[a-fA-F0-9]{24}$/.test(id);
+  }
 
   async createLead(input: CreateLeadDto) {
     const approachAt = parseApproachAt(input.approachAt);
@@ -94,8 +94,7 @@ import { LeadEventService } from '../lead_event/lead-event.service';
     if (input.email !== undefined) data.email = input.email ?? null;
     if (input.leadSource !== undefined) data.leadSource = input.leadSource;
     if (input.referralCode !== undefined) data.referralCode = input.referralCode ?? null;
-    if (input.referralName !== undefined)
-      data.referralName = input.referralName ?? null;
+    if (input.referralName !== undefined) data.referralName = input.referralName ?? null;
     if (input.gender !== undefined) data.gender = (input.gender as $Enums.Gender | null) ?? null;
     if (input.age !== undefined) data.age = input.age ?? null;
     if (input.location !== undefined) data.location = input.location ?? null;
@@ -126,29 +125,31 @@ import { LeadEventService } from '../lead_event/lead-event.service';
 
     if (input.occupations !== undefined) {
       const occs = this.sanitizeOccupations(input.occupations);
-      (data as Prisma.IpkLeaddUpdateInput).occupations = occs ?? [];
+      data.occupations = occs ?? [];
     }
 
     return data;
   }
 
   private sanitizeOccupations(
-    occs?:
-      | Array<{
-        profession?: string | null;
-        companyName?: string | null;
-        designation?: string | null;
-        startedAt?: Date | string | null;
-        endedAt?: Date | string | null;
-      }>
-      | null,
+    occs?: Array<{
+      profession?: string | null;
+      companyName?: string | null;
+      designation?: string | null;
+      startedAt?: Date | string | null;
+      endedAt?: Date | string | null;
+    }> | null,
   ): Prisma.OccupationCreateInput[] | null {
     if (!occs || !Array.isArray(occs)) return null;
     const toDate = (v: unknown) => {
       if (!v) return undefined;
       if (v instanceof Date) return isNaN(v.getTime()) ? undefined : v;
-      const d = new Date(v as any);
-      return isNaN(d.getTime()) ? undefined : d;
+      if (typeof v === 'string' || typeof v === 'number') {
+        const d = new Date(v);
+        return isNaN(d.getTime()) ? undefined : d;
+      }
+      // unsupported type
+      return undefined;
     };
     const mapped = occs
       .map((o) => ({
@@ -158,7 +159,10 @@ import { LeadEventService } from '../lead_event/lead-event.service';
         startedAt: toDate(o.startedAt),
         endedAt: toDate(o.endedAt),
       }))
-      .filter((o) => !!o.profession) as Array<Required<Pick<Prisma.OccupationCreateInput, 'profession'>> & Omit<Prisma.OccupationCreateInput, 'profession'>>;
+      .filter((o) => !!o.profession) as Array<
+      Required<Pick<Prisma.OccupationCreateInput, 'profession'>> &
+        Omit<Prisma.OccupationCreateInput, 'profession'>
+    >;
     return mapped as Prisma.OccupationCreateInput[];
   }
 
@@ -193,7 +197,7 @@ import { LeadEventService } from '../lead_event/lead-event.service';
           email: input.email ?? existing.email,
           location: input.location ?? existing.location,
           referralCode: input.referralCode ?? existing.referralCode ?? null,
-          referralName: input.referralName ?? (existing as any).referralName ?? null,
+          referralName: input.referralName ?? existing.referralName ?? null,
           gender: (input.gender as $Enums.Gender) ?? existing.gender ?? null,
           age: (input.age as number | null) ?? existing.age ?? null,
           profession: (input.profession as $Enums.Profession) ?? existing.profession ?? null,
@@ -205,7 +209,7 @@ import { LeadEventService } from '../lead_event/lead-event.service';
           clientTypes: input.clientTypes ?? existing.clientTypes,
           remark: input.remark ?? existing.remark,
           bioText: input.bioText ?? existing.bioText,
-          occupations: input.occupations ? occupations : ((existing as any).occupations ?? []),
+          ...(input.occupations !== undefined ? { occupations } : {}),
 
           phoneNormalized: pn ?? existing.phoneNormalized,
           archived: false,
@@ -215,9 +219,10 @@ import { LeadEventService } from '../lead_event/lead-event.service';
           reenterCount: { increment: 1 },
           lastSeenAt: new Date(),
           approachAt: approachAt ?? existing.approachAt ?? null,
-          clientQa: (input.clientQa !== undefined)
-            ? ((input.clientQa as unknown) as Prisma.InputJsonValue)
-            : ((existing.clientQa as unknown) as Prisma.InputJsonValue | null),
+          clientQa:
+            input.clientQa !== undefined
+              ? (input.clientQa as unknown as Prisma.InputJsonValue)
+              : (existing.clientQa as unknown as Prisma.InputJsonValue | null),
         },
         include: { assignedRm: true },
       });
@@ -329,7 +334,7 @@ import { LeadEventService } from '../lead_event/lead-event.service';
 
   async assignLeads(ids: string[], concurrency = 10) {
     if (!ids?.length) return [];
-    const results: any[] = [];
+    const results: unknown[] = [];
     let i = 0;
     const worker = async () => {
       while (true) {
@@ -339,79 +344,14 @@ import { LeadEventService } from '../lead_event/lead-event.service';
         try {
           const r = await this.assignLead(id);
           results.push(r);
-        } catch { }
+        } catch {
+          // ignore individual failures; continue assigning others
+        }
       }
     };
     const n = Math.min(concurrency, ids.length);
     await Promise.all(Array.from({ length: n }, () => worker()));
     return results;
-  }
-
-  async list(args: LeadListArgs) {
-    const page = Math.max(1, args.page ?? 1);
-    const pageSize = Math.min(100, Math.max(1, args.pageSize ?? 10));
-
-    const where: Prisma.IpkLeaddWhereInput = {
-      archived: args.archived ?? false,
-      status: args.status ?? undefined, // null => no status filter
-      OR: args.search
-        ? [
-          { firstName: { contains: args.search, mode: 'insensitive' } },
-          { lastName: { contains: args.search, mode: 'insensitive' } },
-          { name: { contains: args.search, mode: 'insensitive' } },
-          { phone: { contains: args.search } },
-          { leadSource: { contains: args.search, mode: 'insensitive' } },
-          { leadCode: { contains: args.search, mode: 'insensitive' } },
-        ]
-        : undefined,
-    };
-
-    // ---- Dormant filter -------------------------------------------------
-    // Show leads that are EITHER:
-    //   A) inactive for N+ days, OR
-    //   B) have re-entered at least once.
-    //
-    // If dormantDays is 0/undefined, we skip A) (so “Any” shows re-entries regardless of age).
-    if (args.dormantOnly) {
-      const dormantOr: Prisma.IpkLeaddWhereInput[] = [];
-
-      const days = Number(args.dormantDays ?? 0);
-      if (days > 0) {
-        const cutoff = new Date(Date.now() - days * 86_400_000);
-        dormantOr.push({
-          OR: [
-            { lastSeenAt: { lte: cutoff } },
-            // if never “seen”, fall back to updatedAt
-            { AND: [{ lastSeenAt: null }, { updatedAt: { lte: cutoff } }] },
-          ],
-        });
-      }
-
-      // Always include “has re-entered”
-      dormantOr.push({ reenterCount: { gt: 0 } });
-
-      // Attach to where.AND
-      const andParts: Prisma.IpkLeaddWhereInput[] = [];
-      if (where.AND) andParts.push(...(Array.isArray(where.AND) ? where.AND : [where.AND]));
-      andParts.push({ OR: dormantOr });
-
-      where.AND = andParts;
-    }
-    // --------------------------------------------------------------------
-
-    // Avoid Mongo transactions for read-only ops; run in parallel instead
-    const [items, total] = await Promise.all([
-      this.prisma.ipkLeadd.findMany({
-        where,
-        orderBy: { createdAt: 'desc' },
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-        include: { assignedRm: true },
-      }),
-      this.prisma.ipkLeadd.count({ where }),
-    ]);
-
-    return { items, page, pageSize, total };
   }
 
   async leadsOpen() {
@@ -449,8 +389,12 @@ import { LeadEventService } from '../lead_event/lead-event.service';
         // crude dup check before create
         if (res.reenterCount && res.reenterCount > 0) merged++;
         else created++;
-      } catch (e: any) {
-        errors.push(`Row ${i + 1}: ${e?.message ?? 'Unknown error'}`);
+      } catch (e: unknown) {
+        const msg =
+          typeof e === 'object' && e && 'message' in e
+            ? String((e as { message?: unknown }).message)
+            : 'Unknown error';
+        errors.push(`Row ${i + 1}: ${msg}`);
       }
     }
 
@@ -508,7 +452,12 @@ import { LeadEventService } from '../lead_event/lead-event.service';
 
     await this.leadEvents.phoneAdded(
       leadId,
-      { id: created.id, number: created.number, normalized: created.normalized, label: String(created.label) },
+      {
+        id: created.id,
+        number: created.number,
+        normalized: created.normalized,
+        label: String(created.label),
+      },
       authorId,
     );
 
@@ -597,7 +546,16 @@ import { LeadEventService } from '../lead_event/lead-event.service';
     const { leadId, text, tags = [], channel, outcome, nextFollowUpAt, dormantReason } = params;
 
     const now = new Date();
-    const prev = await this.prisma.ipkLeadd.findUnique({ where: { id: leadId }, select: { status: true, clientStage: true, approachAt: true, lastSeenAt: true, revisitCount: true } });
+    const prev = await this.prisma.ipkLeadd.findUnique({
+      where: { id: leadId },
+      select: {
+        status: true,
+        clientStage: true,
+        approachAt: true,
+        lastSeenAt: true,
+        revisitCount: true,
+      },
+    });
 
     const leadUpdate: Prisma.IpkLeaddUpdateInput = { lastSeenAt: now };
     if (nextFollowUpAt) {
@@ -612,7 +570,10 @@ import { LeadEventService } from '../lead_event/lead-event.service';
       leadUpdate.status = $Enums.LeadStatus.ON_HOLD;
     } else if (outcome === InteractionOutcome.FOLLOW_UP_NEEDED) {
       leadUpdate.clientStage = $Enums.ClientStage.FOLLOWING_UP;
-    } else if (outcome === InteractionOutcome.NO_ANSWER || outcome === InteractionOutcome.WRONG_NUMBER) {
+    } else if (
+      outcome === InteractionOutcome.NO_ANSWER ||
+      outcome === InteractionOutcome.WRONG_NUMBER
+    ) {
       leadUpdate.revisitCount = { increment: 1 } as Prisma.IntFieldUpdateOperationsInput;
     }
 
@@ -629,10 +590,24 @@ import { LeadEventService } from '../lead_event/lead-event.service';
       await this.leadEvents.stageChangeSnapshot({
         leadId,
         summaryText: `Outcome transition: ${outcome ?? 'UNKNOWN'}`,
-        tags: ['STAGE','OUTCOME', ...(channel ? [String(channel)] : [])],
-        prev: { status: prev.status, clientStage: prev.clientStage, approachAt: prev.approachAt, lastSeenAt: prev.lastSeenAt },
-        next: { status: next.status, clientStage: next.clientStage, approachAt: next.approachAt, lastSeenAt: next.lastSeenAt },
-        meta: { fromInteractionId: interaction.id, outcome: outcome ?? null, channel: channel ?? null },
+        tags: ['STAGE', 'OUTCOME', ...(channel ? [String(channel)] : [])],
+        prev: {
+          status: prev.status,
+          clientStage: prev.clientStage,
+          approachAt: prev.approachAt,
+          lastSeenAt: prev.lastSeenAt,
+        },
+        next: {
+          status: next.status,
+          clientStage: next.clientStage,
+          approachAt: next.approachAt,
+          lastSeenAt: next.lastSeenAt,
+        },
+        meta: {
+          fromInteractionId: interaction.id,
+          outcome: outcome ?? null,
+          channel: channel ?? null,
+        },
         authorId,
       });
       // If status changed, also add a lightweight status-change event
@@ -650,7 +625,12 @@ import { LeadEventService } from '../lead_event/lead-event.service';
       select: { remark: true },
     });
     const next = await this.prisma.ipkLeadd.update({ where: { id: leadId }, data: { remark } });
-    await this.leadEvents.remarkUpdated(leadId, prev?.remark ?? null, next.remark ?? null, authorId);
+    await this.leadEvents.remarkUpdated(
+      leadId,
+      prev?.remark ?? null,
+      next.remark ?? null,
+      authorId,
+    );
     return next;
   }
 
@@ -677,9 +657,15 @@ import { LeadEventService } from '../lead_event/lead-event.service';
   async reassignLeadToUser(leadId: string, newRmId: string, authorId?: string | null) {
     const user = await this.prisma.user.findUnique({
       where: { id: newRmId },
-      select: { id: true, name: true },
+      select: { id: true, name: true, role: true, status: true, archived: true },
     });
     if (!user) throw new Error('RM user not found');
+    if (user.role !== $Enums.UserRoles.RM) {
+      throw new BadRequestException('Selected user is not an RM');
+    }
+    if (user.archived || user.status !== $Enums.Status.ACTIVE) {
+      throw new BadRequestException('Selected RM is not active');
+    }
     const next = await this.prisma.ipkLeadd.update({
       where: { id: leadId },
       data: {
@@ -705,7 +691,12 @@ import { LeadEventService } from '../lead_event/lead-event.service';
       where: { id: leadId },
       data: { clientQa: items as unknown as Prisma.InputJsonValue },
     });
-    await this.leadEvents.clientQaUpdated(leadId, prev?.clientQa ?? null, next.clientQa ?? null, authorId);
+    await this.leadEvents.clientQaUpdated(
+      leadId,
+      prev?.clientQa ?? null,
+      next.clientQa ?? null,
+      authorId,
+    );
     return next;
   }
   async changeStage(input: ChangeStageInput, authorId?: string | null) {
@@ -820,13 +811,13 @@ import { LeadEventService } from '../lead_event/lead-event.service';
       assignedRmId: rmId, // ★ only the current RM’s leads
       OR: args.search
         ? [
-          { firstName: { contains: args.search, mode: 'insensitive' } },
-          { lastName: { contains: args.search, mode: 'insensitive' } },
-          { name: { contains: args.search, mode: 'insensitive' } },
-          { phone: { contains: args.search } },
-          { leadSource: { contains: args.search, mode: 'insensitive' } },
-          { leadCode: { contains: args.search, mode: 'insensitive' } },
-        ]
+            { firstName: { contains: args.search, mode: 'insensitive' } },
+            { lastName: { contains: args.search, mode: 'insensitive' } },
+            { name: { contains: args.search, mode: 'insensitive' } },
+            { phone: { contains: args.search } },
+            { leadSource: { contains: args.search, mode: 'insensitive' } },
+            { leadCode: { contains: args.search, mode: 'insensitive' } },
+          ]
         : undefined,
     };
 
@@ -900,5 +891,314 @@ import { LeadEventService } from '../lead_event/lead-event.service';
     if (!lead) throw new Error('Lead not found');
 
     return lead;
+  }
+
+  async listActiveRms() {
+    return this.prisma.user.findMany({
+      where: { role: $Enums.UserRoles.RM, status: $Enums.Status.ACTIVE, archived: false },
+      select: { id: true, name: true, email: true, phone: true, lastAssignedAt: true },
+      orderBy: [{ name: 'asc' }],
+    });
+  }
+  async assignLeadWithMode(params: {
+    leadId: string;
+    mode: AssignMode;
+    rmId?: string;
+    authorId?: string | null;
+  }) {
+    const { leadId, mode, rmId, authorId } = params;
+
+    if (mode === AssignMode.MANUAL) {
+      if (!rmId) throw new Error('rmId required for MANUAL assignment');
+      const next = await this.reassignLeadToUser(leadId, rmId, authorId);
+      return { lead: next, message: `Lead reassigned to ${next.assignedRM}` };
+    }
+
+    // AUTO
+    const next = await this.assignLead(leadId);
+    return { lead: next, message: `Lead auto-assigned to ${next.assignedRM}` };
+  }
+
+  async assignLeadsWithMode(params: {
+    leadIds: string[];
+    mode: AssignMode;
+    rmId?: string;
+    authorId?: string | null;
+  }) {
+    const { leadIds, mode, rmId, authorId } = params;
+    if (!leadIds?.length) return { items: [], assigned: 0, failed: 0, errors: [] as string[] };
+
+    const results: { id: string; ok: boolean; msg: string }[] = [];
+    for (const leadId of leadIds) {
+      try {
+        let assignedTo = '';
+        if (mode === AssignMode.MANUAL) {
+          if (!rmId) throw new Error('rmId required for MANUAL assignment');
+          const r = await this.reassignLeadToUser(leadId, rmId, authorId);
+          assignedTo = r.assignedRM ?? '';
+        } else {
+          const r = await this.assignLead(leadId);
+          assignedTo = r.assignedRM ?? '';
+        }
+        results.push({ id: leadId, ok: true, msg: `Assigned to ${assignedTo}` });
+      } catch (e: unknown) {
+        const msg =
+          typeof e === 'object' && e && 'message' in e
+            ? String((e as { message?: unknown }).message)
+            : 'Unknown error';
+        results.push({ id: leadId, ok: false, msg });
+      }
+    }
+
+    const assigned = results.filter((r) => r.ok).length;
+    const failed = results.length - assigned;
+    return {
+      items: results,
+      assigned,
+      failed,
+      errors: results.filter((r) => !r.ok).map((r) => r.msg),
+    };
+  }
+  async stageSummary() {
+    const rows = await this.prisma.ipkLeadd.groupBy({
+      by: ['clientStage'],
+      where: { archived: false },
+      _count: { _all: true },
+    });
+    const total = await this.prisma.ipkLeadd.count({ where: { archived: false } });
+    const typedRows = rows as Array<{
+      clientStage: $Enums.ClientStage | null;
+      _count: { _all: number };
+    }>;
+    return {
+      items: typedRows.map((r) => ({ stage: r.clientStage ?? null, count: r._count._all })),
+      total,
+    };
+  }
+  async list(args: LeadListArgs) {
+    const page = Math.max(1, args.page ?? 1);
+    const pageSize = Math.min(100, Math.max(1, args.pageSize ?? 10));
+
+    const andParts: Prisma.IpkLeaddWhereInput[] = [];
+
+    const where: Prisma.IpkLeaddWhereInput = {
+      archived: args.archived ?? false,
+
+      // status
+      ...(args.status ? { status: args.status as unknown as $Enums.LeadStatus } : {}),
+      // no statusIn in LeadListArgs; keep single-status filter only
+
+      // stage
+      ...(args.clientStage
+        ? { clientStage: args.clientStage as unknown as $Enums.ClientStage }
+        : {}),
+      ...(args.stageIn?.length
+        ? { clientStage: { in: args.stageIn as unknown as $Enums.ClientStage[] } }
+        : {}),
+
+      // RM scope
+      ...(args.assignedRmId ? { assignedRmId: args.assignedRmId } : {}),
+
+      // text search
+      OR: args.search
+        ? [
+            { firstName: { contains: args.search, mode: 'insensitive' } },
+            { lastName: { contains: args.search, mode: 'insensitive' } },
+            { name: { contains: args.search, mode: 'insensitive' } },
+            { phone: { contains: args.search } },
+            { leadSource: { contains: args.search, mode: 'insensitive' } },
+            { leadCode: { contains: args.search, mode: 'insensitive' } },
+          ]
+        : undefined,
+    };
+
+    // createdAt range
+    if (args.createdAfter || args.createdBefore) {
+      andParts.push({
+        createdAt: {
+          ...(args.createdAfter ? { gte: args.createdAfter } : {}),
+          ...(args.createdBefore ? { lte: args.createdBefore } : {}),
+        },
+      });
+    }
+
+    // follow-up due (approachAt <= now)
+    if (args.followUpDueOnly) {
+      andParts.push({ approachAt: { lte: new Date() } });
+    }
+
+    // no contact since N days
+    if (args.lastSeenBeforeDays && args.lastSeenBeforeDays > 0) {
+      const cutoff = new Date(Date.now() - args.lastSeenBeforeDays * 86_400_000);
+      andParts.push({
+        OR: [
+          { lastSeenAt: { lte: cutoff } },
+          { AND: [{ lastSeenAt: null }, { updatedAt: { lte: cutoff } }] },
+        ],
+      });
+    }
+
+    // your existing dormantOnly block (unchanged)
+    if (args.dormantOnly) {
+      const dormantOr: Prisma.IpkLeaddWhereInput[] = [];
+      const days = Number(args.dormantDays ?? 0);
+      if (days > 0) {
+        const cutoff = new Date(Date.now() - days * 86_400_000);
+        dormantOr.push({
+          OR: [
+            { lastSeenAt: { lte: cutoff } },
+            { AND: [{ lastSeenAt: null }, { updatedAt: { lte: cutoff } }] },
+          ],
+        });
+      }
+      dormantOr.push({ reenterCount: { gt: 0 } });
+      andParts.push({ OR: dormantOr });
+    }
+
+    if (andParts.length) {
+      where.AND = andParts;
+    }
+
+    const [items, total] = await Promise.all([
+      this.prisma.ipkLeadd.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        include: { assignedRm: true },
+      }),
+      this.prisma.ipkLeadd.count({ where }),
+    ]);
+
+    return { items, page, pageSize, total };
+  }
+
+  // --- RM First Contact workflow ---
+  async rmFirstContact(
+    input: {
+      leadId: string;
+      productExplained: boolean;
+      channel: $Enums.InteractionChannel;
+      notExplainedReason?: string | null;
+      note?: string | null;
+      nextFollowUpAt?: Date | null;
+    },
+    user: { id: string; role: $Enums.UserRoles },
+  ) {
+    // 1) Own-lead check
+    const lead = await this.prisma.ipkLeadd.findUnique({
+      where: { id: input.leadId },
+      select: {
+        id: true,
+        assignedRmId: true,
+        clientStage: true,
+        status: true,
+        approachAt: true,
+        lastSeenAt: true,
+        leadCode: true,
+        name: true,
+        phone: true,
+        leadSource: true,
+        product: true,
+        clientTypes: true,
+        remark: true,
+        assignedRM: true,
+      },
+    });
+    if (!lead) throw new BadRequestException('Lead not found');
+    if (user.role !== $Enums.UserRoles.ADMIN && user.role !== $Enums.UserRoles.MARKETING) {
+      if (!(user.role === $Enums.UserRoles.RM && lead.assignedRmId === user.id)) {
+        throw new BadRequestException('You do not have permission to update this lead');
+      }
+    }
+
+    const now = new Date();
+
+    // 2) Move to FIRST_TALK_DONE + set follow-up + mark progress
+    const next = await this.prisma.ipkLeadd.update({
+      where: { id: input.leadId },
+      data: {
+        clientStage: $Enums.ClientStage.FIRST_TALK_DONE,
+        status:
+          lead.status === $Enums.LeadStatus.ASSIGNED ? $Enums.LeadStatus.IN_PROGRESS : lead.status,
+        approachAt: input.nextFollowUpAt ?? lead.approachAt ?? null,
+        lastSeenAt: now,
+      },
+    });
+
+    // 3) One rich snapshot event + optional note
+    const summaryText = [
+      'First contact done',
+      `Product explained: ${input.productExplained ? 'Yes' : 'No'}`,
+      `Channel: ${String(input.channel)}`,
+      input.nextFollowUpAt ? `Next follow-up: ${input.nextFollowUpAt.toISOString()}` : null,
+      !input.productExplained && input.notExplainedReason
+        ? `Reason: ${input.notExplainedReason}`
+        : null,
+      input.note ? `Note: ${input.note}` : null,
+    ]
+      .filter(Boolean)
+      .join(' | ');
+
+    await this.leadEvents.stageChangeSnapshot({
+      leadId: input.leadId,
+      summaryText,
+      tags: [
+        'STAGE',
+        'FIRST_CONTACT',
+        String(input.channel),
+        input.productExplained ? 'PRODUCT_EXPLAINED' : 'PRODUCT_NOT_EXPLAINED',
+      ],
+      prev: {
+        status: lead.status,
+        clientStage: lead.clientStage,
+        approachAt: lead.approachAt,
+        lastSeenAt: lead.lastSeenAt,
+        assignedRM: lead.assignedRM,
+        leadCode: lead.leadCode,
+        name: lead.name,
+        phone: lead.phone,
+        leadSource: lead.leadSource,
+        product: lead.product,
+        clientTypes: lead.clientTypes,
+        remark: lead.remark,
+      },
+      next: {
+        status: next.status,
+        clientStage: next.clientStage,
+        approachAt: next.approachAt,
+        lastSeenAt: next.lastSeenAt,
+        assignedRM: next.assignedRM,
+        leadCode: next.leadCode,
+        name: lead.name,
+        phone: lead.phone,
+        leadSource: lead.leadSource,
+        product: lead.product,
+        clientTypes: lead.clientTypes,
+        remark: lead.remark,
+      },
+      meta: {
+        ui: 'RM_FIRST_CONTACT_FORM',
+        channel: input.channel,
+        productExplained: input.productExplained,
+        notExplainedReason: input.notExplainedReason ?? null,
+        nextFollowUpAt: input.nextFollowUpAt ?? null,
+      },
+      authorId: user.id,
+    });
+
+    if (input.note) {
+      await this.leadEvents.addInteraction(
+        {
+          leadId: input.leadId,
+          text: input.note,
+          tags: ['FIRST_CONTACT', String(input.channel)],
+          channel: input.channel as InteractionChannel,
+        },
+        user.id,
+      );
+    }
+
+    return next;
   }
 }

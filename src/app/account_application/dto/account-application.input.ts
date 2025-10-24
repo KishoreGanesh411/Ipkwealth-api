@@ -50,4 +50,3 @@ export class UpdateKycStatusInput {
   @Field(() => String, { nullable: true })
   remark?: string;
 }
-

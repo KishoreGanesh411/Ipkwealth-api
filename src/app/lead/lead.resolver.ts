@@ -1,30 +1,36 @@
 import { ForbiddenException, UnauthorizedException, UseGuards } from '@nestjs/common';
 import { Args, ID, Int, Mutation, Parent, Query, ResolveField, Resolver } from '@nestjs/graphql';
 import { CurrentUser } from '../auth/current-user.decorator';
+import { Roles } from '../auth/roles.decorator';
+import { RolesGuard } from '../auth/roles.guard';
 import { FirebaseAuthGuard } from '../core/firebase/firebase-auth.guard';
-import { UserEntity } from '../user/entities/user.entity';
-import { UserRoles } from '../user/enums/user.enums';
-import { ChangeStageInput } from './dto/change-stage.input';
-import { BulkLeadRowInput, CreateIpkLeaddInput } from './dto/create-lead.input';
 import {
   LeadInteractionInput,
   LeadNoteInput,
   UpdateLeadClientQaInput,
 } from '../lead_event/dto/lead-event.input';
+import { LeadEventEntity } from '../lead_event/entities/lead-event.model';
+import { UserEntity, UserLiteModel } from '../user/entities/user.entity';
+import { UserRoles } from '../user/enums/user.enums';
+import { AssignLeadInput, AssignLeadsBulkInput } from './dto/assign.input';
+import { ChangeStageInput } from './dto/change-stage.input';
+import { BulkLeadRowInput, CreateIpkLeaddInput } from './dto/create-lead.input';
 import { LeadListArgs } from './dto/lead-list.args';
 import { LeadPhoneInput, UpdateLeadBioInput, UpdateLeadRemarkInput } from './dto/lead-phone.input';
 import { ReassignLeadInput } from './dto/reassign-lead.input';
+import { RmFirstContactInput } from './dto/rm-first-contact.input';
 import { BulkImportResult } from './entities/bulk-result.model';
-import { IpkLeaddEntity } from './entities/ipk-leadd.model';
-import { LeadEventEntity } from '../lead_event/entities/lead-event.model';
+import { AssignBulkResult, AssignResult, IpkLeaddEntity } from './entities/ipk-leadd.model';
 import { LeadPage } from './entities/lead-page.model';
 import { LeadPhoneEntity } from './entities/lead-phone.model';
-import { LeadStatus } from './enums/ipk-leadd.enum';
+import { StageSummary } from './entities/stage-summary.model';
+import { ClientStage, LeadStatus } from './enums/ipk-leadd.enum';
+import { $Enums } from '@prisma/client';
 import { IpkLeaddService } from './ipk-leadd.service';
 
 @Resolver(() => IpkLeaddEntity)
 export class IpkLeaddResolver {
-  constructor(private readonly service: IpkLeaddService) { }
+  constructor(private readonly service: IpkLeaddService) {}
 
   @Mutation(() => IpkLeaddEntity, { name: 'createIpkLeadd' })
   createIpkLeadd(@Args('input') input: CreateIpkLeaddInput) {
@@ -40,6 +46,41 @@ export class IpkLeaddResolver {
   @Mutation(() => [IpkLeaddEntity], { name: 'assignLeads' })
   assignLeads(@Args({ name: 'ids', type: () => [ID] }) ids: string[]) {
     return this.service.assignLeads(ids);
+  }
+
+  // ---------- Admin-controlled assignment with mode (AUTO/MANUAL) ----------
+  @UseGuards(FirebaseAuthGuard, RolesGuard)
+  @Roles(UserRoles.ADMIN)
+  @Mutation(() => AssignResult, { name: 'assignLeadWithMode' })
+  assignLeadWithMode(@Args('input') input: AssignLeadInput, @CurrentUser() user: UserEntity) {
+    return this.service.assignLeadWithMode({
+      leadId: input.leadId,
+      mode: input.mode,
+      rmId: input.rmId,
+      authorId: user?.id,
+    });
+  }
+
+  @UseGuards(FirebaseAuthGuard, RolesGuard)
+  @Roles(UserRoles.ADMIN)
+  @Mutation(() => AssignBulkResult, { name: 'assignLeadsWithMode' })
+  async assignLeadsWithMode(
+    @Args('input') input: AssignLeadsBulkInput,
+    @CurrentUser() user: UserEntity,
+  ) {
+    const res = await this.service.assignLeadsWithMode({
+      leadIds: input.leadIds,
+      mode: input.mode,
+      rmId: input.rmId,
+      authorId: user?.id,
+    });
+    // Normalize item shape to expose `message` instead of `msg`
+    return {
+      items: res.items.map((i) => ({ id: i.id, ok: i.ok, message: i.msg })),
+      assigned: res.assigned,
+      failed: res.failed,
+      errors: res.errors,
+    } as AssignBulkResult;
   }
 
   @Query(() => [IpkLeaddEntity], { name: 'leadsOpen' })
@@ -157,7 +198,7 @@ export class IpkLeaddResolver {
     @Args('status', { type: () => LeadStatus }) status: LeadStatus,
     @CurrentUser() user: UserEntity,
   ) {
-    return this.service.updateStatus(leadId, status as any, user?.id);
+    return this.service.updateStatus(leadId, status as unknown as $Enums.LeadStatus, user?.id);
   }
 
   @UseGuards(FirebaseAuthGuard)
@@ -232,5 +273,32 @@ export class IpkLeaddResolver {
       }
     }
     return data;
+  }
+  @UseGuards(FirebaseAuthGuard, RolesGuard)
+  @Roles(UserRoles.ADMIN) // Admin only
+  @Query(() => [UserLiteModel], { name: 'activeRms' })
+  activeRms() {
+    return this.service.listActiveRms();
+  }
+  @UseGuards(FirebaseAuthGuard)
+  @Query(() => StageSummary, { name: 'leadStageSummary' })
+  leadStageSummary() {
+    return this.service.stageSummary();
+  }
+  @UseGuards(FirebaseAuthGuard)
+  @Query(() => LeadPage, { name: 'leadsByStage' })
+  leadsByStage(
+    @Args('stage', { type: () => ClientStage, nullable: true }) stage?: ClientStage,
+    @Args('args', { type: () => LeadListArgs, nullable: true }) args?: LeadListArgs,
+  ) {
+    const a = Object.assign(new LeadListArgs(), args ?? {});
+    a.clientStage = stage ?? a.clientStage;
+    return this.service.list(a);
+  }
+  @UseGuards(FirebaseAuthGuard, RolesGuard)
+  @Roles(UserRoles.RM)
+  @Mutation(() => IpkLeaddEntity, { name: 'rmFirstContact' })
+  rmFirstContact(@Args('input') input: RmFirstContactInput, @CurrentUser() user: UserEntity) {
+    return this.service.rmFirstContact(input, user);
   }
 }

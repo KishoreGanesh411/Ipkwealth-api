@@ -256,6 +256,7 @@ model IpkLeadd {
   @@index([createdAt])
   @@index([status])
   @@map("ipk_leadd")
+  @@index([clientStage])
 }
 
 enum PhoneLabel {

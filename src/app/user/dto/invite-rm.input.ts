@@ -22,4 +22,3 @@ export class InviteRmInput {
   @IsEnum(Gender)
   gender?: Gender;
 }
-

@@ -23,7 +23,7 @@ export class FirebaseAuthGuard implements CanActivate {
   constructor(
     @Inject(FIREBASE_ADMIN) private readonly firebase: typeof admin,
     protected readonly users: UserApiService,
-  ) { }
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const req = this.getRequest(context);
@@ -43,10 +43,10 @@ export class FirebaseAuthGuard implements CanActivate {
 
     const firebaseUser: FirebaseAuthUser = {
       firebaseUid: decoded.uid,
-      email: decoded.email ?? null,
-      emailVerified: decoded.email_verified ?? false,
-      name: decoded.name ?? null,
-      picture: decoded.picture ?? null,
+      email: typeof decoded.email === 'string' ? decoded.email : null,
+      emailVerified: Boolean(decoded.email_verified ?? false),
+      name: typeof decoded.name === 'string' ? decoded.name : null,
+      picture: typeof decoded.picture === 'string' ? decoded.picture : null,
       token,
       claims: decoded,
     };
@@ -67,7 +67,7 @@ export class FirebaseAuthGuard implements CanActivate {
     // GraphQL
     try {
       const gqlCtx = GqlExecutionContext.create(context);
-      const req = gqlCtx.getContext()?.req as FirebaseAuthRequest | undefined;
+      const req = gqlCtx.getContext<{ req?: FirebaseAuthRequest }>()?.req;
       if (req) return req;
     } catch {
       /* no-op */
@@ -81,10 +81,13 @@ export class FirebaseAuthGuard implements CanActivate {
     const header = request.headers?.authorization;
 
     if (Array.isArray(header)) {
-      const bearer = header.find(
-        (value) => typeof value === 'string' && value.startsWith('Bearer '),
-      );
-      return bearer ? bearer.slice(7).trim() || null : null;
+      for (const h of header) {
+        if (typeof h === 'string' && h.startsWith('Bearer ')) {
+          const token = h.slice(7).trim();
+          return token.length > 0 ? token : null;
+        }
+      }
+      return null;
     }
 
     if (typeof header !== 'string' || !header.startsWith('Bearer ')) return null;

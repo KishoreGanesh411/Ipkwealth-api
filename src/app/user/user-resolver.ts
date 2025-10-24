@@ -1,17 +1,12 @@
 import { HttpException, UseGuards } from '@nestjs/common';
-import {
-  Args,
-  ID,
-  Mutation,
-  Parent,
-  Query,
-  ResolveField,
-  Resolver,
-} from '@nestjs/graphql';
+import { Args, ID, Mutation, Parent, Query, ResolveField, Resolver } from '@nestjs/graphql';
 import { $Enums } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { FirebaseAuthGuard } from '../core/firebase/firebase-auth.guard';
+import { Roles } from '../auth/roles.decorator';
+import { RolesGuard } from '../auth/roles.guard';
+import { UserRoles } from './enums/user.enums';
 import { IpkLeaddEntity } from '../lead/entities/ipk-leadd.model';
 import { LeadStatus as GqlLeadStatus } from '../lead/enums/ipk-leadd.enum';
 import { CreateUserInput } from './dto/create-user.dto';
@@ -42,16 +37,18 @@ export class UserResolver {
   constructor(
     private readonly users: UserApiService,
     private readonly prisma: PrismaService,
-  ) { }
+  ) {}
 
   // ?? This triggers Firebase verification + upsert; CurrentUser returns DB user
   @UseGuards(FirebaseAuthGuard)
   @Query(() => UserEntity)
-  async me(@CurrentUser() user: UserEntity) {
+  me(@CurrentUser() user: UserEntity) {
     return user;
   }
 
   // TODO: add role guard for admin-only access
+  @UseGuards(FirebaseAuthGuard, RolesGuard)
+  @Roles(UserRoles.ADMIN)
   @Mutation(() => CreateUserPayload)
   async createUser(@Args('input') input: CreateUserInput): Promise<CreateUserPayload> {
     try {
@@ -65,6 +62,8 @@ export class UserResolver {
     }
   }
 
+  @UseGuards(FirebaseAuthGuard, RolesGuard)
+  @Roles(UserRoles.ADMIN)
   @Mutation(() => String)
   async generatePasswordResetLink(
     @Args('email', { type: () => String }) email: string,
@@ -75,14 +74,13 @@ export class UserResolver {
       if (error instanceof HttpException) {
         throw error;
       }
-      const message = this.resolveErrorMessage(
-        error,
-        'Unable to generate password reset link',
-      );
+      const message = this.resolveErrorMessage(error, 'Unable to generate password reset link');
       throw new Error(message);
     }
   }
 
+  @UseGuards(FirebaseAuthGuard, RolesGuard)
+  @Roles(UserRoles.ADMIN)
   @Query(() => [UserEntity])
   async getUsers(
     @Args('withLeads', { type: () => Boolean, defaultValue: false })
@@ -91,6 +89,8 @@ export class UserResolver {
     return withLeads ? this.users.getAllUserWithLeads() : this.users.getAllUser();
   }
 
+  @UseGuards(FirebaseAuthGuard, RolesGuard)
+  @Roles(UserRoles.ADMIN)
   @Query(() => UserEntity, { nullable: true })
   async getUser(
     @Args('id', { type: () => ID }) id: string,
@@ -100,6 +100,8 @@ export class UserResolver {
     return withLeads ? this.users.getUserWithLeads(id) : this.users.getUser(id);
   }
 
+  @UseGuards(FirebaseAuthGuard, RolesGuard)
+  @Roles(UserRoles.ADMIN)
   @Mutation(() => UserEntity)
   async updateUser(
     @Args('id', { type: () => ID }) id: string,
@@ -108,28 +110,36 @@ export class UserResolver {
     return this.users.updateUser(id, input);
   }
 
+  @UseGuards(FirebaseAuthGuard, RolesGuard)
+  @Roles(UserRoles.ADMIN)
   @Mutation(() => InviteRmPayload)
-  async inviteRm(
-    @Args('input') input: InviteRmInput,
-  ): Promise<InviteRmPayload> {
+  async inviteRm(@Args('input') input: InviteRmInput): Promise<InviteRmPayload> {
     return this.users.inviteRm(input);
   }
 
+  @UseGuards(FirebaseAuthGuard, RolesGuard)
+  @Roles(UserRoles.ADMIN)
   @Mutation(() => UserEntity)
   async makeAdmin(@Args('id', { type: () => ID }) id: string): Promise<UserEntity> {
     return this.users.makeAdmin(id);
   }
 
+  @UseGuards(FirebaseAuthGuard, RolesGuard)
+  @Roles(UserRoles.ADMIN)
   @Mutation(() => SyncReport)
   async syncUsersWithFirebase(): Promise<SyncReport> {
     return this.users.syncUsersWithFirebase();
   }
 
+  @UseGuards(FirebaseAuthGuard, RolesGuard)
+  @Roles(UserRoles.ADMIN)
   @Mutation(() => UserEntity)
   async removeUser(@Args('id', { type: () => ID }) id: string) {
     return this.users.deleteUser(id);
   }
 
+  @UseGuards(FirebaseAuthGuard, RolesGuard)
+  @Roles(UserRoles.ADMIN)
   @Query(() => [UserEntity])
   async getActiveUsers(): Promise<UserEntity[]> {
     return this.users.getActiveUsers();
@@ -157,7 +167,7 @@ export class UserResolver {
       age: r.age ?? null,
       location: r.location ?? null,
       referralCode: r.referralCode ?? null,
-      referralName: (r as any).referralName ?? null,
+      referralName: r.referralName ?? null,
       leadSource: r.leadSource,
       profession: r.profession ?? null,
       companyName: r.companyName ?? null,

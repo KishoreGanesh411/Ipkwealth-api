@@ -1,7 +1,7 @@
 import { Field, GraphQLISODateTime, ID, ObjectType } from '@nestjs/graphql';
 import { Gender } from '../../enums/common.enum';
-import { Status, UserRoles } from '../enums/user.enums';
 import { IpkLeaddEntity } from '../../lead/entities/ipk-leadd.model';
+import { Status, UserRoles } from '../enums/user.enums';
 
 @ObjectType()
 export class UserEntity {
@@ -92,4 +92,12 @@ export class SyncReport {
 
   @Field(() => [String])
   missingFirebase!: string[];
+}
+
+@ObjectType()
+export class UserLiteModel {
+  @Field(() => ID) id!: string;
+  @Field() name!: string;
+  @Field({ nullable: true }) email?: string;
+  @Field({ nullable: true }) phone?: string;
 }

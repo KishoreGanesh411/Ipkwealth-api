@@ -33,4 +33,3 @@ export class UpdateLeadBioInput {
   @Field(() => String)
   bioText!: string;
 }
-

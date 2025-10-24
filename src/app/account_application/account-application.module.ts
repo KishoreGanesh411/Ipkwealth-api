@@ -17,4 +17,4 @@ import { AccountApplicationService } from './account-application.service';
     FirebaseModule,
   ],
 })
-export class AccountApplicationModule { }
+export class AccountApplicationModule {}

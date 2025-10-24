@@ -7,4 +7,4 @@ import { LeadEventService } from './lead-event.service';
   providers: [LeadEventService],
   exports: [LeadEventService],
 })
-export class LeadEventModule { }
+export class LeadEventModule {}

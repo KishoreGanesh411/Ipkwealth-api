@@ -2,7 +2,7 @@ import { Type } from 'class-transformer';
 import {
   IsArray,
   IsDateString,
- IsEmail,
+  IsEmail,
   IsInt,
   IsNotEmpty,
   IsOptional,

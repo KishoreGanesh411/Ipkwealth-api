@@ -8,10 +8,14 @@ const getSaltRounds = (): number => {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : DEFAULT_SALT_ROUNDS;
 };
 
-export const hashPassword = async (plain: string): Promise<string> => {
-  return bcrypt.hash(plain, getSaltRounds());
+// Narrow the bcrypt API to typed wrappers so eslint doesn't see `any`
+type BcryptLike = {
+  hash: (data: string, saltOrRounds: number) => Promise<string>;
+  compare: (data: string, encrypted: string) => Promise<boolean>;
 };
+const b: BcryptLike = bcrypt as unknown as BcryptLike;
 
-export const verifyPassword = async (plain: string, hash: string): Promise<boolean> => {
-  return bcrypt.compare(plain, hash);
-};
+export const hashPassword = (plain: string): Promise<string> => b.hash(plain, getSaltRounds());
+
+export const verifyPassword = (plain: string, hash: string): Promise<boolean> =>
+  b.compare(plain, hash);

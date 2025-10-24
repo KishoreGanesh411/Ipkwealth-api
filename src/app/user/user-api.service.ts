@@ -26,7 +26,7 @@ export class UserApiService {
   constructor(
     private readonly prisma: PrismaService,
     @Inject(FIREBASE_ADMIN) private readonly firebase: typeof admin,
-  ) { }
+  ) {}
 
   /* ----------------------------- CREATE ----------------------------- */
   async createUser(input: CreateUserInput): Promise<CreateUserPayload> {
@@ -43,6 +43,12 @@ export class UserApiService {
         displayName,
         disabled: false,
       });
+      // Set role as a custom claim so FE can read it from the token
+      try {
+        await this.firebase.auth().setCustomUserClaims(userRecord.uid, { role: input.role });
+      } catch {
+        // non-fatal; DB remains source of truth for role
+      }
     } catch (error) {
       this.handleFirebaseCreateError(error);
     }
@@ -158,6 +164,14 @@ export class UserApiService {
       }
     }
 
+    const statusPatch =
+      dto.status ??
+      (dto.active === undefined
+        ? undefined
+        : dto.active
+          ? UserStatusEnum.ACTIVE
+          : UserStatusEnum.INACTIVE);
+
     const prismaData: Prisma.UserUpdateInput = {
       name: nextName ?? undefined,
       email: nextEmail ?? undefined,
@@ -165,7 +179,7 @@ export class UserApiService {
       gender: dto.gender,
       archived: dto.archived,
       role: dto.role ? { set: dto.role } : undefined,
-      status: dto.status ? { set: dto.status } : undefined,
+      status: statusPatch ? { set: statusPatch } : undefined,
       // Do not allow client to set firebaseUid directly
     };
 
@@ -287,7 +301,7 @@ export class UserApiService {
     const role = this.pickRole(payload.claims, existing?.role);
     const resolvedEmail = payload.email
       ? this.normalizeEmail(payload.email)
-      : existing?.email ?? placeholderEmail;
+      : (existing?.email ?? placeholderEmail);
     const resolvedName = payload.name ?? existing?.name ?? resolvedEmail;
 
     if (existing) {
@@ -427,7 +441,10 @@ export class UserApiService {
         try {
           record = await this.firebase.auth().getUserByEmail(u.email);
           if (record && !u.firebaseUid) {
-            await this.prisma.user.update({ where: { id: u.id }, data: { firebaseUid: record.uid } });
+            await this.prisma.user.update({
+              where: { id: u.id },
+              data: { firebaseUid: record.uid },
+            });
             linkedByEmail++;
           }
         } catch {

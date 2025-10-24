@@ -20,4 +20,3 @@ run().catch((err) => {
   console.error('Failed to generate schema:', err);
   process.exit(1);
 });
-

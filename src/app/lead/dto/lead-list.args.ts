@@ -1,6 +1,6 @@
 // src/app/lead/dto/lead-list.args.ts
-import { Field, InputType, Int } from '@nestjs/graphql';
-import { LeadStatus } from '../enums/ipk-leadd.enum';
+import { Field, ID, InputType, Int } from '@nestjs/graphql';
+import { ClientStage, LeadStatus } from '../enums/ipk-leadd.enum';
 
 @InputType()
 export class LeadListArgs {
@@ -25,4 +25,21 @@ export class LeadListArgs {
 
   @Field(() => Int, { nullable: true })
   dormantDays?: number | null;
+
+  // ★ stage filters
+  @Field(() => ClientStage, { nullable: true }) clientStage?: ClientStage;
+  @Field(() => [ClientStage], { nullable: true }) stageIn?: ClientStage[];
+
+  // ★ RM scope
+  @Field(() => ID, { nullable: true }) assignedRmId?: string;
+
+  // ★ helpers
+  @Field(() => Boolean, { nullable: true }) followUpDueOnly?: boolean; // approachAt <= now
+  @Field(() => Int, { nullable: true }) lastSeenBeforeDays?: number; // no contact since N days
+
+  // existing dormant helpers
+
+  // optional created range
+  @Field({ nullable: true }) createdAfter?: Date;
+  @Field({ nullable: true }) createdBefore?: Date;
 }

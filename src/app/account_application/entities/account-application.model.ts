@@ -40,4 +40,3 @@ export class AccountApplicationEntity {
   @Field(() => GraphQLISODateTime)
   updatedAt!: Date;
 }
-

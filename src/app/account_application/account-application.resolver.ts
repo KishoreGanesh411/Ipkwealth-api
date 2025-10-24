@@ -5,7 +5,11 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import { UserEntity } from '../user/entities/user.entity';
 import { AccountApplicationEntity } from './entities/account-application.model';
 import { AccountApplicationService } from './account-application.service';
-import { CreateAccountApplicationInput, UpdateApplicationStatusInput, UpdateKycStatusInput } from './dto/account-application.input';
+import {
+  CreateAccountApplicationInput,
+  UpdateApplicationStatusInput,
+  UpdateKycStatusInput,
+} from './dto/account-application.input';
 
 @Resolver(() => AccountApplicationEntity)
 export class AccountApplicationResolver {
@@ -13,7 +17,10 @@ export class AccountApplicationResolver {
 
   @UseGuards(FirebaseAuthGuard)
   @Mutation(() => AccountApplicationEntity)
-  createAccountApplication(@Args('input') input: CreateAccountApplicationInput, @CurrentUser() user: UserEntity) {
+  createAccountApplication(
+    @Args('input') input: CreateAccountApplicationInput,
+    @CurrentUser() user: UserEntity,
+  ) {
     return this.service.create({
       leadId: input.leadId,
       pan: input.pan,
@@ -28,13 +35,24 @@ export class AccountApplicationResolver {
 
   @UseGuards(FirebaseAuthGuard)
   @Mutation(() => AccountApplicationEntity)
-  updateAccountApplicationStatus(@Args('input') input: UpdateApplicationStatusInput, @CurrentUser() user: UserEntity) {
-    return this.service.updateApplicationStatus(input.applicationId, input.status, input.remark, user?.id);
+  updateAccountApplicationStatus(
+    @Args('input') input: UpdateApplicationStatusInput,
+    @CurrentUser() user: UserEntity,
+  ) {
+    return this.service.updateApplicationStatus(
+      input.applicationId,
+      input.status,
+      input.remark,
+      user?.id,
+    );
   }
 
   @UseGuards(FirebaseAuthGuard)
   @Mutation(() => AccountApplicationEntity)
-  updateAccountKycStatus(@Args('input') input: UpdateKycStatusInput, @CurrentUser() user: UserEntity) {
+  updateAccountKycStatus(
+    @Args('input') input: UpdateKycStatusInput,
+    @CurrentUser() user: UserEntity,
+  ) {
     return this.service.updateKycStatus(input.applicationId, input.kyc, input.remark, user?.id);
   }
 
@@ -44,4 +62,3 @@ export class AccountApplicationResolver {
     return this.service.findByLead(leadId);
   }
 }
-

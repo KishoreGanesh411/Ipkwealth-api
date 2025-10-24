@@ -10,10 +10,9 @@ async function run() {
   try {
     const users = app.get(UserApiService);
     const report = await users.syncUsersWithFirebase();
-    // eslint-disable-next-line no-console
+
     console.log(JSON.stringify(report, null, 2));
   } catch (err) {
-    // eslint-disable-next-line no-console
     console.error('Sync failed:', err);
     process.exitCode = 1;
   } finally {
@@ -21,5 +20,4 @@ async function run() {
   }
 }
 
-run();
-
+void run();

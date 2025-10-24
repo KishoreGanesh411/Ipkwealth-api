@@ -4,6 +4,7 @@ import {
   KycStatusEnum,
 } from '../account_application/enums/application.enum';
 import {
+  AssignMode,
   ClientStage,
   DormantReason,
   InteractionChannel,
@@ -31,3 +32,4 @@ registerEnumType(InteractionOutcome, { name: 'InteractionOutcome' });
 registerEnumType(DormantReason, { name: 'DormantReason' });
 registerEnumType(ApplicationStatusEnum, { name: 'ApplicationStatus' });
 registerEnumType(KycStatusEnum, { name: 'KycStatus' });
+registerEnumType(AssignMode, { name: 'AssignMode' });

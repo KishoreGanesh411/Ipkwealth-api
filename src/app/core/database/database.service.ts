@@ -1,9 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import * as config from '@nestjs/config';
-import {
-  MongooseModuleOptions,
-  MongooseOptionsFactory,
-} from '@nestjs/mongoose';
+import { MongooseModuleOptions, MongooseOptionsFactory } from '@nestjs/mongoose';
 
 import { DatabaseConfig } from '../config/database.config';
 

@@ -4,7 +4,7 @@ export function normalizePhone(raw?: string | null): string | null {
   return digits.slice(-12); // last 10–12 digits
 }
 
-export function parseClientQa(input?: string[] | null): any {
+export function parseClientQa(input?: string[] | null): string[] | null {
   if (!input?.length) return null;
   // Store as array of strings; server stays agnostic of format
   return input
@@ -12,7 +12,7 @@ export function parseClientQa(input?: string[] | null): any {
       String(t)
         .split(/\r?\n+/)
         .map((x) => x.trim())
-        .filter(Boolean)
+        .filter(Boolean),
     )
     .slice(0, 12); // cap to ~12 lines (your “5–6” items, accounting for sublines)
 }
@@ -41,4 +41,3 @@ export function parseApproachAt(v: unknown): Date | null {
 
   return null;
 }
-

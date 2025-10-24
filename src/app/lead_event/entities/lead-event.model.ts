@@ -26,11 +26,11 @@ export class LeadEventEntity {
   tags!: string[];
 
   @Field(() => GraphQLJSON, { nullable: true })
-  prev?: any | null;
+  prev?: unknown;
 
   @Field(() => GraphQLJSON, { nullable: true })
-  next?: any | null;
+  next?: unknown;
 
   @Field(() => GraphQLJSON, { nullable: true })
-  meta?: any | null;
+  meta?: unknown;
 }

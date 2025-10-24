@@ -24,6 +24,41 @@ enum ApplicationStatus {
   UNDER_REVIEW
 }
 
+type AssignBulkItemResult {
+  id: ID!
+  message: String!
+  ok: Boolean!
+}
+
+type AssignBulkResult {
+  assigned: Int!
+  errors: [String!]!
+  failed: Int!
+  items: [AssignBulkItemResult!]!
+}
+
+input AssignLeadInput {
+  leadId: ID!
+  mode: AssignMode!
+  rmId: ID
+}
+
+input AssignLeadsBulkInput {
+  leadIds: [ID!]!
+  mode: AssignMode!
+  rmId: ID
+}
+
+enum AssignMode {
+  AUTO
+  MANUAL
+}
+
+type AssignResult {
+  lead: IpkLeaddEntity!
+  message: String!
+}
+
 type BulkImportResult {
   created: Int!
   errors: [String!]!
@@ -290,11 +325,18 @@ input LeadInteractionInput {
 
 input LeadListArgs {
   archived: Boolean
+  assignedRmId: ID
+  clientStage: ClientStage
+  createdAfter: DateTime
+  createdBefore: DateTime
   dormantDays: Int
   dormantOnly: Boolean
+  followUpDueOnly: Boolean
+  lastSeenBeforeDays: Int
   page: Int = 1
   pageSize: Int = 10
   search: String
+  stageIn: [ClientStage!]
   status: LeadStatus
 }
 
@@ -345,7 +387,9 @@ type Mutation {
   addLeadNote(input: LeadNoteInput!): LeadEventEntity!
   addLeadPhone(input: LeadPhoneInput!, leadId: ID!): [LeadPhoneEntity!]!
   assignLead(id: ID!): IpkLeaddEntity!
+  assignLeadWithMode(input: AssignLeadInput!): AssignResult!
   assignLeads(ids: [ID!]!): [IpkLeaddEntity!]!
+  assignLeadsWithMode(input: AssignLeadsBulkInput!): AssignBulkResult!
   changeStage(input: ChangeStageInput!): IpkLeaddEntity!
   createAccountApplication(input: CreateAccountApplicationInput!): AccountApplicationEntity!
   createIpkLeadd(input: CreateIpkLeaddInput!): IpkLeaddEntity!
@@ -358,6 +402,7 @@ type Mutation {
   reassignLead(input: ReassignLeadInput!): IpkLeaddEntity!
   removeLeadPhone(phoneId: ID!): [LeadPhoneEntity!]!
   removeUser(id: ID!): UserEntity!
+  rmFirstContact(input: RmFirstContactInput!): IpkLeaddEntity!
   setLeadPhoneWhatsapp(isWhatsapp: Boolean!, phoneId: ID!): LeadPhoneEntity!
   syncUsersWithFirebase: SyncReport!
   updateAccountApplicationStatus(input: UpdateApplicationStatusInput!): AccountApplicationEntity!
@@ -396,13 +441,16 @@ enum PhoneLabel {
 
 type Query {
   accountApplicationsByLead(leadId: ID!): [AccountApplicationEntity!]!
+  activeRms: [UserLiteModel!]!
   getActiveUsers: [UserEntity!]!
   getUser(id: ID!, withLeads: Boolean! = false): UserEntity
   getUsers(withLeads: Boolean! = false): [UserEntity!]!
   ipkLeadds: [IpkLeaddEntity!]!
   lead(id: ID!): IpkLeaddEntity!
   leadDetailWithTimeline(eventsLimit: Int, leadId: ID!): IpkLeaddEntity!
+  leadStageSummary: StageSummary!
   leads(args: LeadListArgs!): LeadPage!
+  leadsByStage(args: LeadListArgs, stage: ClientStage): LeadPage!
   leadsOpen: [IpkLeaddEntity!]!
   me: UserEntity!
   myAssignedLeads(args: LeadListArgs! = {page: 1, pageSize: 10}): LeadPage!
@@ -411,6 +459,25 @@ type Query {
 input ReassignLeadInput {
   leadId: ID!
   newRmId: ID!
+}
+
+input RmFirstContactInput {
+  channel: InteractionChannel!
+  leadId: ID!
+  nextFollowUpAt: DateTime
+  notExplainedReason: String
+  note: String
+  productExplained: Boolean!
+}
+
+type StageSummary {
+  items: [StageSummaryItem!]!
+  total: Int!
+}
+
+type StageSummaryItem {
+  count: Int!
+  stage: ClientStage
 }
 
 enum Status {
@@ -482,6 +549,13 @@ type UserEntity {
   role: UserRoles!
   status: Status!
   updatedAt: DateTime!
+}
+
+type UserLiteModel {
+  email: String
+  id: ID!
+  name: String!
+  phone: String
 }
 
 enum UserRoles {

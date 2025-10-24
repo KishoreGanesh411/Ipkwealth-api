@@ -77,3 +77,8 @@ export enum DormantReason {
   RISKY_CLIENT = 'RISKY_CLIENT',
   OTHER = 'OTHER',
 }
+
+export enum AssignMode {
+  AUTO = 'AUTO',
+  MANUAL = 'MANUAL',
+}

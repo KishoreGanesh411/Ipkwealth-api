@@ -91,7 +91,8 @@ export class LeadEventService {
       type: LeadEventType.INTERACTION as unknown as $Enums.LeadEventType,
       text,
       tags: normalizedTags,
-      meta: (Object.keys(meta).length > 0 ? (meta as Prisma.InputJsonValue) : undefined) ?? undefined,
+      meta:
+        (Object.keys(meta).length > 0 ? (meta as Prisma.InputJsonValue) : undefined) ?? undefined,
     });
   }
 
@@ -144,12 +145,7 @@ export class LeadEventService {
     });
   }
 
-  assignment(
-    leadId: string,
-    assignedRmId: string,
-    assignedRM: string,
-    authorId?: string | null,
-  ) {
+  assignment(leadId: string, assignedRmId: string, assignedRM: string, authorId?: string | null) {
     return this.createEvent({
       leadId,
       authorId,
@@ -261,4 +257,3 @@ export class LeadEventService {
     });
   }
 }
-

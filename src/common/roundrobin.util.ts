@@ -31,8 +31,9 @@ export class RmRoundRobin {
 
   async nextMany(k: number): Promise<RmLite[]> {
     const rms = await this.activeRms();
-    if (rms.length === 0)
-      return Array.from({ length: k }, () => ({ id: null as any, name: null }));
+    if (rms.length === 0) {
+      throw new Error('No active RMs available for round robin');
+    }
 
     // Reserve k positions in the RR pointer
     const { start } = await this.dbseq.nextRange(this.KEY, k, this.tx);

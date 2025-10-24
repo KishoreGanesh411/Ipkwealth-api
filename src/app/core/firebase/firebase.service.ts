@@ -4,9 +4,7 @@ import { FIREBASE_ADMIN } from './firebase-admin.provider';
 
 @Injectable()
 export class FirebaseService {
-  constructor(
-    @Inject(FIREBASE_ADMIN) private readonly firebase: typeof admin,
-  ) {}
+  constructor(@Inject(FIREBASE_ADMIN) private readonly firebase: typeof admin) {}
 
   get admin() {
     return this.firebase;
@@ -16,4 +14,3 @@ export class FirebaseService {
     return this.firebase.auth();
   }
 }
-

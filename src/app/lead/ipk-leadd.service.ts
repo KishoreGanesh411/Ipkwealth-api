@@ -24,7 +24,7 @@ export class IpkLeaddService {
     private readonly prisma: PrismaService,
     private readonly dbseq: DbSeqService,
     private readonly leadEvents: LeadEventService,
-  ) {}
+  ) { }
 
   private buildName(f?: string | null, l?: string | null, fb?: string | null) {
     const s = [f, l].filter(Boolean).join(' ');
@@ -160,9 +160,9 @@ export class IpkLeaddService {
         endedAt: toDate(o.endedAt),
       }))
       .filter((o) => !!o.profession) as Array<
-      Required<Pick<Prisma.OccupationCreateInput, 'profession'>> &
+        Required<Pick<Prisma.OccupationCreateInput, 'profession'>> &
         Omit<Prisma.OccupationCreateInput, 'profession'>
-    >;
+      >;
     return mapped as Prisma.OccupationCreateInput[];
   }
 
@@ -262,7 +262,8 @@ export class IpkLeaddService {
         assignedRmId: null,
         assignedRM: null,
 
-        status: $Enums.LeadStatus.OPEN,
+        status: $Enums.LeadStatus.PENDING,
+        clientStage: $Enums.ClientStage.NEW_LEAD,
         archived: false,
 
         reenterCount: 0,
@@ -317,7 +318,8 @@ export class IpkLeaddService {
         leadCode,
         assignedRmId: rm.id,
         assignedRM: rm.name,
-        status: $Enums.LeadStatus.ASSIGNED,
+        // keep existing status (often PENDING) until first contact
+        clientStage: existing.clientStage ?? $Enums.ClientStage.NEW_LEAD,
         updatedAt: now,
       },
       include: { assignedRm: true },
@@ -574,7 +576,13 @@ export class IpkLeaddService {
       outcome === InteractionOutcome.NO_ANSWER ||
       outcome === InteractionOutcome.WRONG_NUMBER
     ) {
+      const nextCount = (prev?.revisitCount ?? 0) + 1;
       leadUpdate.revisitCount = { increment: 1 } as Prisma.IntFieldUpdateOperationsInput;
+      // Auto-dormant after 3 consecutive no-answers/invalid contact
+      if (nextCount >= 3) {
+        leadUpdate.clientStage = $Enums.ClientStage.NO_RESPONSE_DORMANT;
+        leadUpdate.status = $Enums.LeadStatus.ON_HOLD;
+      }
     }
 
     const next = await this.prisma.ipkLeadd.update({ where: { id: leadId }, data: leadUpdate });
@@ -811,13 +819,13 @@ export class IpkLeaddService {
       assignedRmId: rmId, // ★ only the current RM’s leads
       OR: args.search
         ? [
-            { firstName: { contains: args.search, mode: 'insensitive' } },
-            { lastName: { contains: args.search, mode: 'insensitive' } },
-            { name: { contains: args.search, mode: 'insensitive' } },
-            { phone: { contains: args.search } },
-            { leadSource: { contains: args.search, mode: 'insensitive' } },
-            { leadCode: { contains: args.search, mode: 'insensitive' } },
-          ]
+          { firstName: { contains: args.search, mode: 'insensitive' } },
+          { lastName: { contains: args.search, mode: 'insensitive' } },
+          { name: { contains: args.search, mode: 'insensitive' } },
+          { phone: { contains: args.search } },
+          { leadSource: { contains: args.search, mode: 'insensitive' } },
+          { leadCode: { contains: args.search, mode: 'insensitive' } },
+        ]
         : undefined,
     };
 
@@ -1002,13 +1010,13 @@ export class IpkLeaddService {
       // text search
       OR: args.search
         ? [
-            { firstName: { contains: args.search, mode: 'insensitive' } },
-            { lastName: { contains: args.search, mode: 'insensitive' } },
-            { name: { contains: args.search, mode: 'insensitive' } },
-            { phone: { contains: args.search } },
-            { leadSource: { contains: args.search, mode: 'insensitive' } },
-            { leadCode: { contains: args.search, mode: 'insensitive' } },
-          ]
+          { firstName: { contains: args.search, mode: 'insensitive' } },
+          { lastName: { contains: args.search, mode: 'insensitive' } },
+          { name: { contains: args.search, mode: 'insensitive' } },
+          { phone: { contains: args.search } },
+          { leadSource: { contains: args.search, mode: 'insensitive' } },
+          { leadCode: { contains: args.search, mode: 'insensitive' } },
+        ]
         : undefined,
     };
 
@@ -1112,6 +1120,11 @@ export class IpkLeaddService {
       }
     }
 
+    // Enforce: First contact is only for NEW_LEAD stage
+    if (lead.clientStage && lead.clientStage !== $Enums.ClientStage.NEW_LEAD) {
+      throw new BadRequestException('First contact is allowed only for NEW_LEAD stage');
+    }
+
     const now = new Date();
 
     // 2) Move to FIRST_TALK_DONE + set follow-up + mark progress
@@ -1119,8 +1132,13 @@ export class IpkLeaddService {
       where: { id: input.leadId },
       data: {
         clientStage: $Enums.ClientStage.FIRST_TALK_DONE,
-        status:
-          lead.status === $Enums.LeadStatus.ASSIGNED ? $Enums.LeadStatus.IN_PROGRESS : lead.status,
+        status: (new Set<$Enums.LeadStatus>([
+          $Enums.LeadStatus.PENDING,
+          $Enums.LeadStatus.ASSIGNED,
+          $Enums.LeadStatus.OPEN,
+        ])).has(lead.status as $Enums.LeadStatus)
+          ? $Enums.LeadStatus.IN_PROGRESS
+          : (lead.status as $Enums.LeadStatus),
         approachAt: input.nextFollowUpAt ?? lead.approachAt ?? null,
         lastSeenAt: now,
       },

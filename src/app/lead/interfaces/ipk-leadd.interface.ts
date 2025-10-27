@@ -38,7 +38,7 @@ export interface IpkLeaddModel {
   referralCode?: string | null;
   referralName?: string | null;
   leadSource: string;
-  remark?: string | null;
+  remark?: unknown | null;
   bioText?: string | null;
   clientQa?: ClientQaItem[] | null;
   lastContactedAt?: Date | null;

@@ -269,7 +269,7 @@ type IpkLeaddEntity {
   reenterCount: Int
   referralCode: String
   referralName: String
-  remark: String
+  remark: JSON
   sipAmount: Int
   status: LeadStatus!
   updatedAt: DateTime!

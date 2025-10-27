@@ -218,7 +218,7 @@ model IpkLeadd {
   sipAmount       Int?
   clientTypes     String?
 
-  remark    String?
+  remark    Json?
   bioText   String?
 
   assignedRmId String? @db.ObjectId

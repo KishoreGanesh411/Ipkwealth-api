@@ -26,6 +26,36 @@ export class IpkLeaddService {
     private readonly leadEvents: LeadEventService,
   ) { }
 
+  // --- Remark helpers (JSON history) ---
+  private normalizeRemark(remark: unknown): Array<Record<string, unknown>> {
+    if (!remark) return [];
+    if (Array.isArray(remark)) return remark as Array<Record<string, unknown>>;
+    if (typeof remark === 'string') {
+      return [
+        {
+          kind: 'LEGACY',
+          text: remark,
+          at: new Date().toISOString(),
+        },
+      ];
+    }
+    try {
+      // If object like { history: [...] }
+      const r = remark as Record<string, unknown>;
+      if (Array.isArray((r as any).history)) return (r as any).history as Array<Record<string, unknown>>;
+    } catch {}
+    return [];
+  }
+
+  private pushRemark(
+    existing: unknown,
+    entry: Record<string, unknown>,
+  ): Array<Record<string, unknown>> {
+    const arr = this.normalizeRemark(existing);
+    arr.push({ ...entry, at: (entry.at as string) ?? new Date().toISOString() });
+    return arr;
+  }
+
   private buildName(f?: string | null, l?: string | null, fb?: string | null) {
     const s = [f, l].filter(Boolean).join(' ');
     return s || fb || undefined;
@@ -107,7 +137,10 @@ export class IpkLeaddService {
     if (input.investmentRange !== undefined) data.investmentRange = input.investmentRange ?? null;
     if (input.sipAmount !== undefined) data.sipAmount = input.sipAmount ?? null;
     if (input.clientTypes !== undefined) data.clientTypes = input.clientTypes ?? null;
-    if (input.remark !== undefined) data.remark = input.remark ?? null;
+    if (input.remark !== undefined) {
+      const arr = this.pushRemark(null, { kind: 'NOTE', text: String(input.remark ?? '') });
+      data.remark = arr as any;
+    }
     if (input.bioText !== undefined) data.bioText = input.bioText ?? null;
 
     if (input.phone !== undefined) {
@@ -207,7 +240,10 @@ export class IpkLeaddService {
           investmentRange: input.investmentRange ?? existing.investmentRange,
           sipAmount: (input.sipAmount as number | null) ?? existing.sipAmount ?? null,
           clientTypes: input.clientTypes ?? existing.clientTypes,
-          remark: input.remark ?? existing.remark,
+          remark:
+            input.remark !== undefined && input.remark !== null
+              ? (this.pushRemark(existing.remark, { kind: 'NOTE', text: String(input.remark) }) as any)
+              : (existing.remark as any),
           bioText: input.bioText ?? existing.bioText,
           ...(input.occupations !== undefined ? { occupations } : {}),
 
@@ -254,7 +290,10 @@ export class IpkLeaddService {
         sipAmount: (input.sipAmount as number | null) ?? null,
 
         clientTypes: input.clientTypes ?? null,
-        remark: input.remark ?? null,
+        remark:
+          input.remark !== undefined && input.remark !== null
+            ? (this.pushRemark(null, { kind: 'NOTE', text: String(input.remark) }) as any)
+            : null,
         bioText: input.bioText ?? null,
         occupations,
 
@@ -627,18 +666,21 @@ export class IpkLeaddService {
     return interaction;
   }
 
-  async updateRemark(leadId: string, remark: string, authorId?: string | null) {
+  async updateRemark(leadId: string, remarkText: string, authorId?: string | null) {
     const prev = await this.prisma.ipkLeadd.findUnique({
       where: { id: leadId },
       select: { remark: true },
     });
-    const next = await this.prisma.ipkLeadd.update({ where: { id: leadId }, data: { remark } });
-    await this.leadEvents.remarkUpdated(
-      leadId,
-      prev?.remark ?? null,
-      next.remark ?? null,
-      authorId,
-    );
+    const nextRemarkArr = this.pushRemark(prev?.remark ?? null, {
+      kind: 'NOTE',
+      text: remarkText,
+      by: authorId ?? null,
+    });
+    const next = await this.prisma.ipkLeadd.update({
+      where: { id: leadId },
+      data: { remark: nextRemarkArr as unknown as Prisma.InputJsonValue },
+    });
+    await this.leadEvents.remarkUpdated(leadId, prev?.remark ?? null, nextRemarkArr, authorId);
     return next;
   }
 
@@ -1127,26 +1169,60 @@ export class IpkLeaddService {
 
     const now = new Date();
 
-    // 2) Move to FIRST_TALK_DONE + set follow-up + mark progress
+    // Require follow-up when product explained
+    if (input.productExplained && !input.nextFollowUpAt) {
+      throw new BadRequestException('Next follow-up date is required when product is explained');
+    }
+
+    // 2) Build update based on product explained flag
+    const updateData: Prisma.IpkLeaddUpdateInput = {
+      lastSeenAt: now,
+      approachAt: input.nextFollowUpAt ?? lead.approachAt ?? null,
+      nextActionDueAt: input.nextFollowUpAt ?? null,
+    };
+
+    if (input.productExplained) {
+      // Product was explained: move to FIRST_TALK_DONE and mark as OPEN
+      updateData.clientStage = $Enums.ClientStage.FIRST_TALK_DONE;
+      updateData.status = $Enums.LeadStatus.OPEN;
+    } else {
+      // Not explained: keep stage NEW_LEAD, mark as PENDING, save follow-up
+      updateData.clientStage = lead.clientStage ?? $Enums.ClientStage.NEW_LEAD;
+      updateData.status = $Enums.LeadStatus.PENDING;
+    }
+
+    // Append structured remark entries
+    const prevRemarkArr = this.normalizeRemark(lead.remark);
+    const remarkEntries = [...prevRemarkArr];
+    const note = (input.note || '').trim();
+    if (input.productExplained) {
+      remarkEntries.push({
+        kind: 'FIRST_CONTACT',
+        productExplained: true,
+        channel: input.channel,
+        nextFollowUpAt: input.nextFollowUpAt ? input.nextFollowUpAt.toISOString() : null,
+      });
+    } else {
+      remarkEntries.push({
+        kind: 'FIRST_CONTACT',
+        productExplained: false,
+        reason: (input.notExplainedReason || null),
+        nextFollowUpAt: input.nextFollowUpAt ? input.nextFollowUpAt.toISOString() : null,
+      });
+    }
+    if (note) {
+      remarkEntries.push({ kind: 'NOTE', text: note });
+    }
+    updateData.remark = remarkEntries as any;
+
     const next = await this.prisma.ipkLeadd.update({
       where: { id: input.leadId },
-      data: {
-        clientStage: $Enums.ClientStage.FIRST_TALK_DONE,
-        status: (new Set<$Enums.LeadStatus>([
-          $Enums.LeadStatus.PENDING,
-          $Enums.LeadStatus.ASSIGNED,
-          $Enums.LeadStatus.OPEN,
-        ])).has(lead.status as $Enums.LeadStatus)
-          ? $Enums.LeadStatus.IN_PROGRESS
-          : (lead.status as $Enums.LeadStatus),
-        approachAt: input.nextFollowUpAt ?? lead.approachAt ?? null,
-        lastSeenAt: now,
-      },
+      data: updateData,
     });
 
-    // 3) One rich snapshot event + optional note
+    // 3) One rich event capturing the form submission
     const summaryText = [
-      'First contact done',
+      'First contact saved',
       `Product explained: ${input.productExplained ? 'Yes' : 'No'}`,
       `Channel: ${String(input.channel)}`,
       input.nextFollowUpAt ? `Next follow-up: ${input.nextFollowUpAt.toISOString()}` : null,
@@ -1158,15 +1234,17 @@ export class IpkLeaddService {
       .filter(Boolean)
       .join(' | ');
 
+    const tags = [
+      ...(input.productExplained ? ['STAGE'] : []),
+      'FIRST_CONTACT',
+      String(input.channel),
+      input.productExplained ? 'PRODUCT_EXPLAINED' : 'PRODUCT_NOT_EXPLAINED',
+    ];
+
     await this.leadEvents.stageChangeSnapshot({
       leadId: input.leadId,
       summaryText,
-      tags: [
-        'STAGE',
-        'FIRST_CONTACT',
-        String(input.channel),
-        input.productExplained ? 'PRODUCT_EXPLAINED' : 'PRODUCT_NOT_EXPLAINED',
-      ],
+      tags,
       prev: {
         status: lead.status,
         clientStage: lead.clientStage,
@@ -1193,18 +1271,16 @@ export class IpkLeaddService {
         leadSource: lead.leadSource,
         product: lead.product,
         clientTypes: lead.clientTypes,
-        remark: lead.remark,
+        remark: (updateData.remark as unknown) ?? lead.remark,
       },
-      meta: {
-        ui: 'RM_FIRST_CONTACT_FORM',
-        channel: input.channel,
-        productExplained: input.productExplained,
-        notExplainedReason: input.notExplainedReason ?? null,
-        nextFollowUpAt: input.nextFollowUpAt ?? null,
-      },
+      meta:
+        input.productExplained
+          ? ({ productExplained: true, channel: input.channel } as Record<string, unknown>)
+          : ({ productExplained: false, reason: input.notExplainedReason ?? null } as Record<string, unknown>),
       authorId: user.id,
     });
 
+    // Emit an additional note interaction if provided
     if (input.note) {
       await this.leadEvents.addInteraction(
         {
@@ -1215,6 +1291,11 @@ export class IpkLeaddService {
         },
         user.id,
       );
+    }
+
+    // If remark changed, emit remark-updated event
+    if (JSON.stringify(lead.remark ?? null) !== JSON.stringify(updateData.remark ?? null)) {
+      await this.leadEvents.remarkUpdated(input.leadId, lead.remark ?? null, remarkEntries, user.id);
     }
 
     return next;

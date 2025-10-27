@@ -98,8 +98,8 @@ export class LeadEventService {
 
   remarkUpdated(
     leadId: string,
-    prevRemark: string | null | undefined,
-    nextRemark: string | null | undefined,
+    prevRemark: unknown,
+    nextRemark: unknown,
     authorId?: string | null,
   ) {
     return this.createEvent({
@@ -107,8 +107,8 @@ export class LeadEventService {
       authorId,
       type: LeadEventType.REMARK_UPDATED as unknown as $Enums.LeadEventType,
       text: 'Remark updated',
-      prev: { remark: prevRemark ?? null } as Prisma.InputJsonValue,
-      next: { remark: nextRemark ?? null } as Prisma.InputJsonValue,
+      prev: { remark: (prevRemark ?? null) as unknown } as Prisma.InputJsonValue,
+      next: { remark: (nextRemark ?? null) as unknown } as Prisma.InputJsonValue,
     });
   }
 

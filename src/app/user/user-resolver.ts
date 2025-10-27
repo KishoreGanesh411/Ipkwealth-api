@@ -176,7 +176,7 @@ export class UserResolver {
       investmentRange: r.investmentRange ?? null,
       sipAmount: r.sipAmount ?? null,
       clientTypes: r.clientTypes ?? null,
-      remark: r.remark ?? null,
+      remark: (r.remark as unknown) ?? null,
       assignedRmId: r.assignedRmId ?? null,
       assignedRM: r.assignedRM ?? null,
       firstSeenAt: r.firstSeenAt ?? null,

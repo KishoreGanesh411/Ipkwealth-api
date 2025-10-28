@@ -270,6 +270,7 @@ type IpkLeaddEntity {
   referralCode: String
   referralName: String
   remark: JSON
+  remarks: [RemarkEntry]
   sipAmount: Int
   status: LeadStatus!
   updatedAt: DateTime!
@@ -409,6 +410,7 @@ type Mutation {
   updateAccountKycStatus(input: UpdateKycStatusInput!): AccountApplicationEntity!
   updateLeadBio(input: UpdateLeadBioInput!): IpkLeaddEntity!
   updateLeadClientQa(input: UpdateLeadClientQaInput!): IpkLeaddEntity!
+  updateLeadDetails(input: UpdateLeadDetailsInput!): IpkLeaddEntity!
   updateLeadRemark(input: UpdateLeadRemarkInput!): IpkLeaddEntity!
   updateLeadStatus(leadId: ID!, status: LeadStatus!): IpkLeaddEntity!
   updateUser(id: ID!, input: UpdateUserDto!): UserEntity!
@@ -459,6 +461,12 @@ type Query {
 input ReassignLeadInput {
   leadId: ID!
   newRmId: ID!
+}
+
+type RemarkEntry {
+  author: String
+  createdAt: DateTime!
+  text: String!
 }
 
 input RmFirstContactInput {
@@ -514,6 +522,29 @@ input UpdateLeadBioInput {
 input UpdateLeadClientQaInput {
   items: [ClientQaItemInput!]!
   leadId: ID!
+}
+
+input UpdateLeadDetailsInput {
+  age: Float
+  approachAt: DateTime
+  bioText: String
+  companyName: String
+  designation: String
+  email: String
+  firstName: String
+  gender: String
+  investmentRange: String
+  lastName: String
+  leadId: ID!
+  location: String
+  name: String
+  occupations: [OccupationInput!]
+  phone: String
+  product: String
+  profession: String
+  referralCode: String
+  referralName: String
+  sipAmount: Float
 }
 
 input UpdateLeadRemarkInput {

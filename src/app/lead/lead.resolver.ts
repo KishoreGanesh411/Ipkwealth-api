@@ -19,8 +19,10 @@ import { LeadListArgs } from './dto/lead-list.args';
 import { LeadPhoneInput, UpdateLeadBioInput, UpdateLeadRemarkInput } from './dto/lead-phone.input';
 import { ReassignLeadInput } from './dto/reassign-lead.input';
 import { RmFirstContactInput } from './dto/rm-first-contact.input';
+import { UpdateLeadDetailsInput } from './dto/update-lead-details.input';
 import { BulkImportResult } from './entities/bulk-result.model';
 import { AssignBulkResult, AssignResult, IpkLeaddEntity } from './entities/ipk-leadd.model';
+import { RemarkEntry } from './entities/remark.model';
 import { LeadPage } from './entities/lead-page.model';
 import { LeadPhoneEntity } from './entities/lead-phone.model';
 import { StageSummary } from './entities/stage-summary.model';
@@ -115,6 +117,43 @@ export class IpkLeaddResolver {
     return this.service.getEvents(lead.id);
   }
 
+  // Remarks: normalize JSON into a typed array
+  @ResolveField(() => [RemarkEntry], { name: 'remarks', nullable: 'itemsAndList' })
+  remarks(@Parent() lead: IpkLeaddEntity): RemarkEntry[] | null {
+    const raw = (lead as unknown as { remark?: unknown }).remark;
+    if (raw === null || raw === undefined) return [];
+
+    const toArray = (v: unknown): any[] => {
+      if (!v) return [];
+      if (Array.isArray(v)) return v as any[];
+      if (typeof v === 'string') {
+        return [{ text: v, at: new Date().toISOString() }];
+      }
+      if (typeof v === 'object') {
+        const r = v as Record<string, unknown>;
+        if (Array.isArray((r as any).history)) return (r as any).history as any[];
+      }
+      return [];
+    };
+
+    const arr = toArray(raw);
+    const mapped: RemarkEntry[] = arr
+      .map((e) => {
+        const text = typeof e?.text === 'string' ? e.text : String(e?.text ?? '');
+        const atRaw = (e as any)?.at;
+        const at = atRaw ? new Date(String(atRaw)) : new Date();
+        const byName = (e as any)?.byName;
+        const by = (e as any)?.by;
+        const author = typeof byName === 'string' && byName.trim().length > 0
+          ? byName
+          : (typeof by === 'string' ? by : null);
+        return { text, author, createdAt: at } as RemarkEntry;
+      })
+      .filter((x) => x.text && x.text.length > 0);
+
+    return mapped;
+  }
+
   // ----------------------- Phone mutations -----------------------------
   @UseGuards(FirebaseAuthGuard)
   @Mutation(() => [LeadPhoneEntity])
@@ -182,13 +221,20 @@ export class IpkLeaddResolver {
   @UseGuards(FirebaseAuthGuard)
   @Mutation(() => IpkLeaddEntity)
   updateLeadRemark(@Args('input') input: UpdateLeadRemarkInput, @CurrentUser() user: UserEntity) {
-    return this.service.updateRemark(input.leadId, input.remark, user?.id);
+    return this.service.updateRemark(input.leadId, input.remark, user?.id, user?.name ?? null);
   }
 
   @UseGuards(FirebaseAuthGuard)
   @Mutation(() => IpkLeaddEntity)
   updateLeadBio(@Args('input') input: UpdateLeadBioInput, @CurrentUser() user: UserEntity) {
     return this.service.updateBio(input.leadId, input.bioText, user?.id);
+  }
+
+  // Update basic lead details (does not change leadCode or leadSource)
+  @UseGuards(FirebaseAuthGuard)
+  @Mutation(() => IpkLeaddEntity, { name: 'updateLeadDetails' })
+  updateLeadDetails(@Args('input') input: UpdateLeadDetailsInput, @CurrentUser() user: UserEntity) {
+    return this.service.updateLeadDetails(input, user?.id);
   }
 
   @UseGuards(FirebaseAuthGuard)

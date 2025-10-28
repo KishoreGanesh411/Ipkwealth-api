@@ -164,6 +164,122 @@ export class IpkLeaddService {
     return data;
   }
 
+  /** Update lead basic details (excluding leadCode and leadSource) */
+  async updateLeadDetails(
+    input: {
+      leadId: string;
+      firstName?: string;
+      lastName?: string;
+      name?: string;
+      email?: string;
+      phone?: string;
+      location?: string;
+      gender?: string;
+      age?: number;
+      profession?: string;
+      companyName?: string;
+      designation?: string;
+      occupations?: Array<{
+        profession?: string | null;
+        companyName?: string | null;
+        designation?: string | null;
+        startedAt?: Date | string | null;
+        endedAt?: Date | string | null;
+      }>;
+      product?: string;
+      investmentRange?: string;
+      sipAmount?: number;
+      referralCode?: string;
+      referralName?: string;
+      bioText?: string;
+      approachAt?: Date | string | null;
+    },
+    authorId?: string | null,
+  ) {
+    const leadId = input.leadId;
+    const prev = await this.prisma.ipkLeadd.findUnique({ where: { id: leadId } });
+    if (!prev) throw new BadRequestException('Lead not found');
+
+    // Build patch via existing helper by casting into UpdateLeadDto-compatible shape
+    const patch = this.buildLeadUpdateData({
+      firstName: input.firstName,
+      lastName: input.lastName,
+      name: input.name,
+      email: input.email,
+      phone: input.phone,
+      location: input.location,
+      gender: input.gender as any,
+      age: input.age as any,
+      profession: input.profession as any,
+      companyName: input.companyName,
+      designation: input.designation,
+      product: input.product as any,
+      investmentRange: input.investmentRange,
+      sipAmount: input.sipAmount as any,
+      referralCode: input.referralCode,
+      referralName: input.referralName,
+      bioText: input.bioText,
+      approachAt: input.approachAt as any,
+      clientQa: undefined,
+      clientTypes: undefined as any,
+      remark: undefined as any,
+      leadSource: undefined as any,
+      occupations: input.occupations as any,
+    } as unknown as UpdateLeadDto);
+
+    // If nothing to change, just return current
+    if (Object.keys(patch).length === 0) return prev;
+
+    const next = await this.prisma.ipkLeadd.update({ where: { id: leadId }, data: patch });
+
+    // Emit a compact snapshot for audit trail
+    try {
+      const changed: Record<string, unknown> = {};
+      const watchedKeys = [
+        'firstName',
+        'lastName',
+        'name',
+        'email',
+        'phone',
+        'phoneNormalized',
+        'location',
+        'gender',
+        'age',
+        'profession',
+        'companyName',
+        'designation',
+        'product',
+        'investmentRange',
+        'sipAmount',
+        'referralCode',
+        'referralName',
+        'bioText',
+        'approachAt',
+        'occupations',
+      ];
+      for (const k of watchedKeys) {
+        if (JSON.stringify((prev as any)[k]) !== JSON.stringify((next as any)[k])) {
+          changed[k] = { from: (prev as any)[k] ?? null, to: (next as any)[k] ?? null };
+        }
+      }
+      if (Object.keys(changed).length > 0) {
+        await this.leadEvents.stageChangeSnapshot({
+          leadId,
+          summaryText: 'Lead details updated',
+          tags: ['DETAILS'],
+          prev: { id: leadId, ...Object.fromEntries(Object.entries(changed).map(([k, v]) => [k, (v as any).from])) },
+          next: { id: leadId, ...Object.fromEntries(Object.entries(changed).map(([k, v]) => [k, (v as any).to])) },
+          meta: { keys: Object.keys(changed) },
+          authorId: authorId ?? null,
+        });
+      }
+    } catch {
+      // non-blocking
+    }
+
+    return next;
+  }
+
   private sanitizeOccupations(
     occs?: Array<{
       profession?: string | null;
@@ -666,7 +782,12 @@ export class IpkLeaddService {
     return interaction;
   }
 
-  async updateRemark(leadId: string, remarkText: string, authorId?: string | null) {
+  async updateRemark(
+    leadId: string,
+    remarkText: string,
+    authorId?: string | null,
+    authorName?: string | null,
+  ) {
     const prev = await this.prisma.ipkLeadd.findUnique({
       where: { id: leadId },
       select: { remark: true },
@@ -675,6 +796,7 @@ export class IpkLeaddService {
       kind: 'NOTE',
       text: remarkText,
       by: authorId ?? null,
+      byName: authorName ?? null,
     });
     const next = await this.prisma.ipkLeadd.update({
       where: { id: leadId },
@@ -1133,7 +1255,7 @@ export class IpkLeaddService {
       note?: string | null;
       nextFollowUpAt?: Date | null;
     },
-    user: { id: string; role: $Enums.UserRoles },
+    user: { id: string; role: $Enums.UserRoles; name?: string | null },
   ) {
     // 1) Own-lead check
     const lead = await this.prisma.ipkLeadd.findUnique({
@@ -1168,6 +1290,7 @@ export class IpkLeaddService {
     }
 
     const now = new Date();
+    const byName = (user as any)?.name ?? null;
 
     // Require follow-up when product explained
     if (input.productExplained && !input.nextFollowUpAt) {
@@ -1177,6 +1300,7 @@ export class IpkLeaddService {
     // 2) Build update based on product explained flag
     const updateData: Prisma.IpkLeaddUpdateInput = {
       lastSeenAt: now,
+      lastContactedAt: now,
       approachAt: input.nextFollowUpAt ?? lead.approachAt ?? null,
       nextActionDueAt: input.nextFollowUpAt ?? null,
     };
@@ -1201,17 +1325,23 @@ export class IpkLeaddService {
         productExplained: true,
         channel: input.channel,
         nextFollowUpAt: input.nextFollowUpAt ? input.nextFollowUpAt.toISOString() : null,
+        at: now.toISOString(),
+        by: user.id,
+        byName,
       });
     } else {
       remarkEntries.push({
         kind: 'FIRST_CONTACT',
         productExplained: false,
-        reason: (input.notExplainedReason || null),
+        reason: input.notExplainedReason || null,
         nextFollowUpAt: input.nextFollowUpAt ? input.nextFollowUpAt.toISOString() : null,
+        at: now.toISOString(),
+        by: user.id,
+        byName,
       });
     }
     if (note) {
-      remarkEntries.push({ kind: 'NOTE', text: note });
+      remarkEntries.push({ kind: 'NOTE', text: note, at: now.toISOString(), by: user.id, byName });
     }
     updateData.remark = remarkEntries as any;
 

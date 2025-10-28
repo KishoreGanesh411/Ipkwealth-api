@@ -37,8 +37,15 @@ export class FirebaseAuthGuard implements CanActivate {
     try {
       // pass true if you want revocation checks; set to false if not needed
       decoded = await this.firebase.auth().verifyIdToken(token, true);
-    } catch {
-      throw new UnauthorizedException('Firebase token is invalid or revoked');
+    } catch (e: any) {
+      const code: string | undefined = e?.errorInfo?.code || e?.code;
+      if (code === 'auth/id-token-expired') {
+        throw new UnauthorizedException('ID_TOKEN_EXPIRED');
+      }
+      if (code === 'auth/id-token-revoked') {
+        throw new UnauthorizedException('ID_TOKEN_REVOKED');
+      }
+      throw new UnauthorizedException('INVALID_ID_TOKEN');
     }
 
     const firebaseUser: FirebaseAuthUser = {

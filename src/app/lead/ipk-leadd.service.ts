@@ -65,6 +65,14 @@ export class IpkLeaddService {
     return /^[a-fA-F0-9]{24}$/.test(id);
   }
 
+  /** Convert lead code prefix from IPK… to IDEL… (idempotent). */
+  private toIdelLeadCode(code?: string | null): string | null {
+    if (!code) return null;
+    if (code.startsWith('IDEL')) return code;
+    if (code.startsWith('IPK')) return `IDEL${code.slice(3)}`;
+    return code;
+  }
+
   async createLead(input: CreateLeadDto) {
     const approachAt = parseApproachAt(input.approachAt);
     const payload: CreateIpkLeaddInput = {
@@ -807,9 +815,18 @@ export class IpkLeaddService {
   async updateStatus(leadId: string, status: $Enums.LeadStatus, authorId?: string | null) {
     const prev = await this.prisma.ipkLeadd.findUnique({
       where: { id: leadId },
-      select: { status: true },
+      select: { status: true, clientStage: true, leadCode: true },
     });
-    const next = await this.prisma.ipkLeadd.update({ where: { id: leadId }, data: { status } });
+    const shouldFlip =
+      status === $Enums.LeadStatus.CLOSED &&
+      prev?.clientStage === $Enums.ClientStage.ACCOUNT_OPENED;
+    const next = await this.prisma.ipkLeadd.update({
+      where: { id: leadId },
+      data: {
+        status,
+        ...(shouldFlip ? { leadCode: this.toIdelLeadCode(prev?.leadCode ?? null) } : {}),
+      },
+    });
     await this.leadEvents.statusChanged(leadId, prev?.status ?? null, status, authorId);
     return next;
   }
@@ -889,6 +906,9 @@ export class IpkLeaddService {
         clientStage: stage as unknown as $Enums.ClientStage,
         approachAt: nextFollowUpAt ?? prev.approachAt ?? null,
         lastSeenAt: new Date(),
+        ...(stage === $Enums.ClientStage.ACCOUNT_OPENED && prev.status === $Enums.LeadStatus.CLOSED
+          ? { leadCode: this.toIdelLeadCode(prev.leadCode) }
+          : {}),
       },
     });
 

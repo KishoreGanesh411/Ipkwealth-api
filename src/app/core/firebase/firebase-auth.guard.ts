@@ -35,10 +35,11 @@ export class FirebaseAuthGuard implements CanActivate {
 
     let decoded: admin.auth.DecodedIdToken;
     try {
-      // pass true if you want revocation checks; set to false if not needed
-      decoded = await this.firebase.auth().verifyIdToken(token, true);
-    } catch (e: any) {
-      const code: string | undefined = e?.errorInfo?.code || e?.code;
+      // Control revocation checks via env (default: false to improve dev stability)
+      const checkRevoked = String(process.env.FIREBASE_CHECK_REVOKED ?? 'false') === 'true';
+      decoded = await this.firebase.auth().verifyIdToken(token, checkRevoked);
+    } catch (e: unknown) {
+      const code = this.readAuthErrorCode(e);
       if (code === 'auth/id-token-expired') {
         throw new UnauthorizedException('ID_TOKEN_EXPIRED');
       }
@@ -100,5 +101,15 @@ export class FirebaseAuthGuard implements CanActivate {
     if (typeof header !== 'string' || !header.startsWith('Bearer ')) return null;
     const token = header.slice(7).trim();
     return token.length > 0 ? token : null;
+  }
+
+  /** Safely read Firebase admin error code without using `any`. */
+  private readAuthErrorCode(err: unknown): string | undefined {
+    if (typeof err !== 'object' || err === null) return undefined;
+    const obj = err as { errorInfo?: { code?: unknown }; code?: unknown };
+    const fromInfo = obj.errorInfo?.code;
+    if (typeof fromInfo === 'string') return fromInfo;
+    if (typeof obj.code === 'string') return obj.code;
+    return undefined;
   }
 }

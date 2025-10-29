@@ -14,9 +14,6 @@ import { LeadListArgs } from './dto/lead-list.args';
 import { LeadPhoneInput } from './dto/lead-phone.input';
 import { UpdateLeadDto } from './dto/update-lead.dto';
 import { DormantReason, InteractionChannel, InteractionOutcome } from './enums/ipk-leadd.enum';
-// function pad2(n: number) {
-//   return String(n).padStart(2, '0');
-// }
 
 @Injectable()
 export class IpkLeaddService {
@@ -42,8 +39,9 @@ export class IpkLeaddService {
     try {
       // If object like { history: [...] }
       const r = remark as Record<string, unknown>;
-      if (Array.isArray((r as any).history)) return (r as any).history as Array<Record<string, unknown>>;
-    } catch {}
+      if (Array.isArray((r as any).history))
+        return (r as any).history as Array<Record<string, unknown>>;
+    } catch { }
     return [];
   }
 
@@ -128,10 +126,7 @@ export class IpkLeaddService {
     if (input.gender !== undefined) data.gender = (input.gender as $Enums.Gender | null) ?? null;
     if (input.age !== undefined) data.age = input.age ?? null;
     if (input.location !== undefined) data.location = input.location ?? null;
-    if (input.profession !== undefined)
-      data.profession = (input.profession as $Enums.Profession | null) ?? null;
-    if (input.companyName !== undefined) data.companyName = input.companyName ?? null;
-    if (input.designation !== undefined) data.designation = input.designation ?? null;
+    // Single profession/companyName/designation removed; use occupations[]
     if (input.product !== undefined)
       data.product = (input.product as $Enums.Product | null) ?? null;
     if (input.investmentRange !== undefined) data.investmentRange = input.investmentRange ?? null;
@@ -176,9 +171,6 @@ export class IpkLeaddService {
       location?: string;
       gender?: string;
       age?: number;
-      profession?: string;
-      companyName?: string;
-      designation?: string;
       occupations?: Array<{
         profession?: string | null;
         companyName?: string | null;
@@ -210,9 +202,6 @@ export class IpkLeaddService {
       location: input.location,
       gender: input.gender as any,
       age: input.age as any,
-      profession: input.profession as any,
-      companyName: input.companyName,
-      designation: input.designation,
       product: input.product as any,
       investmentRange: input.investmentRange,
       sipAmount: input.sipAmount as any,
@@ -245,9 +234,6 @@ export class IpkLeaddService {
         'location',
         'gender',
         'age',
-        'profession',
-        'companyName',
-        'designation',
         'product',
         'investmentRange',
         'sipAmount',
@@ -267,8 +253,14 @@ export class IpkLeaddService {
           leadId,
           summaryText: 'Lead details updated',
           tags: ['DETAILS'],
-          prev: { id: leadId, ...Object.fromEntries(Object.entries(changed).map(([k, v]) => [k, (v as any).from])) },
-          next: { id: leadId, ...Object.fromEntries(Object.entries(changed).map(([k, v]) => [k, (v as any).to])) },
+          prev: {
+            id: leadId,
+            ...Object.fromEntries(Object.entries(changed).map(([k, v]) => [k, (v as any).from])),
+          },
+          next: {
+            id: leadId,
+            ...Object.fromEntries(Object.entries(changed).map(([k, v]) => [k, (v as any).to])),
+          },
           meta: { keys: Object.keys(changed) },
           authorId: authorId ?? null,
         });
@@ -349,16 +341,16 @@ export class IpkLeaddService {
           referralName: input.referralName ?? existing.referralName ?? null,
           gender: (input.gender as $Enums.Gender) ?? existing.gender ?? null,
           age: (input.age as number | null) ?? existing.age ?? null,
-          profession: (input.profession as $Enums.Profession) ?? existing.profession ?? null,
-          companyName: input.companyName ?? existing.companyName,
-          designation: input.designation ?? existing.designation,
           product: (input.product as $Enums.Product) ?? existing.product ?? null,
           investmentRange: input.investmentRange ?? existing.investmentRange,
           sipAmount: (input.sipAmount as number | null) ?? existing.sipAmount ?? null,
           clientTypes: input.clientTypes ?? existing.clientTypes,
           remark:
             input.remark !== undefined && input.remark !== null
-              ? (this.pushRemark(existing.remark, { kind: 'NOTE', text: String(input.remark) }) as any)
+              ? (this.pushRemark(existing.remark, {
+                kind: 'NOTE',
+                text: String(input.remark),
+              }) as any)
               : (existing.remark as any),
           bioText: input.bioText ?? existing.bioText,
           ...(input.occupations !== undefined ? { occupations } : {}),
@@ -397,10 +389,6 @@ export class IpkLeaddService {
         gender: (input.gender as $Enums.Gender) ?? null,
         age: (input.age as number | null) ?? null,
         location: input.location ?? null,
-
-        profession: (input.profession as $Enums.Profession) ?? null,
-        companyName: input.companyName ?? null,
-        designation: input.designation ?? null,
         product: (input.product as $Enums.Product) ?? null,
         investmentRange: input.investmentRange ?? null,
         sipAmount: (input.sipAmount as number | null) ?? null,
@@ -1403,10 +1391,12 @@ export class IpkLeaddService {
         clientTypes: lead.clientTypes,
         remark: (updateData.remark as unknown) ?? lead.remark,
       },
-      meta:
-        input.productExplained
-          ? ({ productExplained: true, channel: input.channel } as Record<string, unknown>)
-          : ({ productExplained: false, reason: input.notExplainedReason ?? null } as Record<string, unknown>),
+      meta: input.productExplained
+        ? ({ productExplained: true, channel: input.channel } as Record<string, unknown>)
+        : ({ productExplained: false, reason: input.notExplainedReason ?? null } as Record<
+          string,
+          unknown
+        >),
       authorId: user.id,
     });
 
@@ -1425,7 +1415,12 @@ export class IpkLeaddService {
 
     // If remark changed, emit remark-updated event
     if (JSON.stringify(lead.remark ?? null) !== JSON.stringify(updateData.remark ?? null)) {
-      await this.leadEvents.remarkUpdated(input.leadId, lead.remark ?? null, remarkEntries, user.id);
+      await this.leadEvents.remarkUpdated(
+        input.leadId,
+        lead.remark ?? null,
+        remarkEntries,
+        user.id,
+      );
     }
 
     return next;

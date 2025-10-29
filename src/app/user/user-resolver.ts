@@ -169,9 +169,8 @@ export class UserResolver {
       referralCode: r.referralCode ?? null,
       referralName: r.referralName ?? null,
       leadSource: r.leadSource,
-      profession: r.profession ?? null,
-      companyName: r.companyName ?? null,
-      designation: r.designation ?? null,
+      // single profession/companyName/designation removed; use occupations array
+      occupations: (r as any).occupations ?? null,
       product: r.product ?? null,
       investmentRange: r.investmentRange ?? null,
       sipAmount: r.sipAmount ?? null,

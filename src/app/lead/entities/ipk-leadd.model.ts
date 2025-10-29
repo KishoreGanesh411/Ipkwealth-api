@@ -54,14 +54,6 @@ export class IpkLeaddEntity {
   @Field(() => String)
   leadSource!: string;
 
-  @Field(() => String, { nullable: true })
-  profession?: string | null;
-
-  @Field(() => String, { nullable: true })
-  companyName?: string | null;
-
-  @Field(() => String, { nullable: true })
-  designation?: string | null;
 
   @Field(() => String, { nullable: true })
   product?: string | null;

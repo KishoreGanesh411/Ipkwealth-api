@@ -1,5 +1,5 @@
 import { Gender } from 'src/app/enums/common.enum';
-import { ClientStage, LeadStatus, ProductEnum, ProfessionEnum } from '../enums/ipk-leadd.enum';
+import { ClientStage, LeadStatus, ProductEnum } from '../enums/ipk-leadd.enum';
 
 export interface ClientQaItem {
   question: string;
@@ -28,9 +28,13 @@ export interface IpkLeaddModel {
   location?: string | null;
   gender?: Gender | null;
   age?: number | null;
-  profession?: ProfessionEnum | null;
-  companyName?: string | null;
-  designation?: string | null;
+  occupations?: Array<{
+    profession: string;
+    companyName?: string | null;
+    designation?: string | null;
+    startedAt?: Date | null;
+    endedAt?: Date | null;
+  }> | null;
   product?: ProductEnum | null;
   investmentRange?: string | null;
   sipAmount?: number | null;

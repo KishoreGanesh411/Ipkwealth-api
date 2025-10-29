@@ -207,11 +207,8 @@ model IpkLeadd {
   referralName String?
   leadSource   String
 
-  profession      Profession?
-  companyName     String?
-  designation     String?
-
-  // New embedded array of occupations
+  // Removed single profession field; use occupations[].profession per entry
+  // Deprecated single occupation fields removed; use embedded array instead
   occupations     Occupation[]
   product         Product?
   investmentRange String?

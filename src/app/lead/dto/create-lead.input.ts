@@ -16,9 +16,7 @@ export class CreateIpkLeaddInput {
   @Field({ nullable: true }) age?: number;
   @Field({ nullable: true }) location?: string;
 
-  @Field({ nullable: true }) profession?: string;
-  @Field({ nullable: true }) companyName?: string;
-  @Field({ nullable: true }) designation?: string;
+  // Removed single profession/companyName/designation; use occupations[]
 
   @Field({ nullable: true }) product?: string;
   @Field({ nullable: true }) investmentRange?: string;

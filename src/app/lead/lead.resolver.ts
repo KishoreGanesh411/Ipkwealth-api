@@ -20,6 +20,7 @@ import { LeadPhoneInput, UpdateLeadBioInput, UpdateLeadRemarkInput } from './dto
 import { ReassignLeadInput } from './dto/reassign-lead.input';
 import { RmFirstContactInput } from './dto/rm-first-contact.input';
 import { UpdateLeadDetailsInput } from './dto/update-lead-details.input';
+import { UpdateIpkLeaddInput } from './dto/update-leadd.input';
 import { BulkImportResult } from './entities/bulk-result.model';
 import { AssignBulkResult, AssignResult, IpkLeaddEntity } from './entities/ipk-leadd.model';
 import { RemarkEntry } from './entities/remark.model';
@@ -235,6 +236,14 @@ export class IpkLeaddResolver {
   @Mutation(() => IpkLeaddEntity, { name: 'updateLeadDetails' })
   updateLeadDetails(@Args('input') input: UpdateLeadDetailsInput, @CurrentUser() user: UserEntity) {
     return this.service.updateLeadDetails(input, user?.id);
+  }
+
+  // Generic lead update using UpdateIpkLeaddInput (backed by service.updateLead)
+  @UseGuards(FirebaseAuthGuard)
+  @Mutation(() => IpkLeaddEntity, { name: 'updateIpkLeadd' })
+  updateIpkLeadd(@Args('input') input: UpdateIpkLeaddInput) {
+    const { id, ...patch } = input as unknown as { id: string } & Record<string, unknown>;
+    return this.service.updateLead(id, patch as any);
   }
 
   @UseGuards(FirebaseAuthGuard)

@@ -80,20 +80,7 @@ export class CreateLeadDto {
   @MaxLength(128)
   location?: string;
 
-  @IsOptional()
-  @IsString()
-  @MaxLength(64)
-  profession?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(128)
-  companyName?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(128)
-  designation?: string;
+  // Removed single profession/companyName/designation; use occupations[]
 
   @IsOptional()
   @IsString()

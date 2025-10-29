@@ -20,10 +20,7 @@ export class UpdateLeadDetailsInput {
   @Field({ nullable: true }) gender?: string;
   @Field({ nullable: true }) age?: number;
 
-  // Work/occupation (either classic fields or array)
-  @Field({ nullable: true }) profession?: string;
-  @Field({ nullable: true }) companyName?: string;
-  @Field({ nullable: true }) designation?: string;
+  // Work/occupation: use occupations[] only
   @Field(() => [OccupationInput], { nullable: true }) occupations?: OccupationInput[];
 
   // Product interest
@@ -41,4 +38,3 @@ export class UpdateLeadDetailsInput {
   // Optional: next action date when editing
   @Field(() => GraphQLISODateTime, { nullable: true }) approachAt?: Date | null;
 }
-

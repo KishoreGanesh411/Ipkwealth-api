@@ -72,8 +72,6 @@ input BulkLeadRowInput {
   bioText: String
   clientQa: [ClientQaInput!]
   clientTypes: String
-  companyName: String
-  designation: String
   email: String
   firstName: String
   gender: String
@@ -85,7 +83,6 @@ input BulkLeadRowInput {
   occupations: [OccupationInput!]
   phone: String!
   product: String
-  profession: String
   referralCode: String
   referralName: String
   remark: String
@@ -144,8 +141,6 @@ input CreateIpkLeaddInput {
   bioText: String
   clientQa: [ClientQaInput!]
   clientTypes: String
-  companyName: String
-  designation: String
   email: String
   firstName: String
   gender: String
@@ -157,7 +152,6 @@ input CreateIpkLeaddInput {
   occupations: [OccupationInput!]
   phone: String!
   product: String
-  profession: String
   referralCode: String
   referralName: String
   remark: String
@@ -241,10 +235,8 @@ type IpkLeaddEntity {
   clientQa: [ClientQaItem]
   clientStage: ClientStage
   clientTypes: String
-  companyName: String
   contactAttempts: Int
   createdAt: DateTime!
-  designation: String
   email: String
   events: [LeadEventEntity]
   firstName: String
@@ -265,7 +257,6 @@ type IpkLeaddEntity {
   phoneNormalized: String
   phones: [LeadPhoneEntity]
   product: String
-  profession: String
   reenterCount: Int
   referralCode: String
   referralName: String
@@ -408,6 +399,7 @@ type Mutation {
   syncUsersWithFirebase: SyncReport!
   updateAccountApplicationStatus(input: UpdateApplicationStatusInput!): AccountApplicationEntity!
   updateAccountKycStatus(input: UpdateKycStatusInput!): AccountApplicationEntity!
+  updateIpkLeadd(input: UpdateIpkLeaddInput!): IpkLeaddEntity!
   updateLeadBio(input: UpdateLeadBioInput!): IpkLeaddEntity!
   updateLeadClientQa(input: UpdateLeadClientQaInput!): IpkLeaddEntity!
   updateLeadDetails(input: UpdateLeadDetailsInput!): IpkLeaddEntity!
@@ -508,6 +500,30 @@ input UpdateApplicationStatusInput {
   status: ApplicationStatus!
 }
 
+input UpdateIpkLeaddInput {
+  age: Float
+  approachAt: DateTime
+  bioText: String
+  clientQa: [ClientQaInput!]
+  clientTypes: String
+  email: String
+  firstName: String
+  gender: String
+  id: ID!
+  investmentRange: String
+  lastName: String
+  leadSource: String
+  location: String
+  name: String
+  occupations: [OccupationInput!]
+  phone: String
+  product: String
+  referralCode: String
+  referralName: String
+  remark: String
+  sipAmount: Float
+}
+
 input UpdateKycStatusInput {
   applicationId: ID!
   kyc: KycStatus!
@@ -528,8 +544,6 @@ input UpdateLeadDetailsInput {
   age: Float
   approachAt: DateTime
   bioText: String
-  companyName: String
-  designation: String
   email: String
   firstName: String
   gender: String
@@ -541,7 +555,6 @@ input UpdateLeadDetailsInput {
   occupations: [OccupationInput!]
   phone: String
   product: String
-  profession: String
   referralCode: String
   referralName: String
   sipAmount: Float

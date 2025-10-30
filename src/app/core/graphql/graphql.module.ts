@@ -4,6 +4,7 @@ import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { join } from 'path';
 import { environment } from '../../../environments/environment';
+import { GraphQLLoggingPlugin } from './plugins/graphql-logging.plugin';
 
 const isProd = !!environment.production;
 
@@ -16,6 +17,7 @@ const isProd = !!environment.production;
       sortSchema: true,
       introspection: true, // allows Apollo Sandbox & tools in dev
       csrfPrevention: false, // avoid 400 errors from CSRF plugin
+      plugins: isProd ? [] : [new GraphQLLoggingPlugin()],
       context: ({
         req,
         res,

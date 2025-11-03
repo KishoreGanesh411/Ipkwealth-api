@@ -13,7 +13,12 @@ import { CreateIpkLeaddInput } from './dto/create-lead.input';
 import { LeadListArgs } from './dto/lead-list.args';
 import { LeadPhoneInput } from './dto/lead-phone.input';
 import { UpdateLeadDto } from './dto/update-lead.dto';
-import { DormantReason, InteractionChannel, InteractionOutcome } from './enums/ipk-leadd.enum';
+import {
+  DormantReason,
+  InteractionChannel,
+  InteractionOutcome,
+  ClientStage as GqlClientStage,
+} from './enums/ipk-leadd.enum';
 
 @Injectable()
 export class IpkLeaddService {
@@ -21,7 +26,7 @@ export class IpkLeaddService {
     private readonly prisma: PrismaService,
     private readonly dbseq: DbSeqService,
     private readonly leadEvents: LeadEventService,
-  ) { }
+  ) {}
 
   // --- Remark helpers (JSON history) ---
   private normalizeRemark(remark: unknown): Array<Record<string, unknown>> {
@@ -39,9 +44,9 @@ export class IpkLeaddService {
     try {
       // If object like { history: [...] }
       const r = remark as Record<string, unknown>;
-      if (Array.isArray((r as any).history))
-        return (r as any).history as Array<Record<string, unknown>>;
-    } catch { }
+      const history = (r as { history?: unknown }).history;
+      if (Array.isArray(history)) return history as Array<Record<string, unknown>>;
+    } catch {}
     return [];
   }
 
@@ -142,7 +147,7 @@ export class IpkLeaddService {
     if (input.clientTypes !== undefined) data.clientTypes = input.clientTypes ?? null;
     if (input.remark !== undefined) {
       const arr = this.pushRemark(null, { kind: 'NOTE', text: String(input.remark ?? '') });
-      data.remark = arr as any;
+      data.remark = arr as unknown as Prisma.InputJsonValue;
     }
     if (input.bioText !== undefined) data.bioText = input.bioText ?? null;
 
@@ -201,28 +206,29 @@ export class IpkLeaddService {
     if (!prev) throw new BadRequestException('Lead not found');
 
     // Build patch via existing helper by casting into UpdateLeadDto-compatible shape
-    const patch = this.buildLeadUpdateData({
+    const patchLike = {
       firstName: input.firstName,
       lastName: input.lastName,
       name: input.name,
       email: input.email,
       phone: input.phone,
       location: input.location,
-      gender: input.gender as any,
-      age: input.age as any,
-      product: input.product as any,
+      gender: input.gender,
+      age: input.age,
+      product: input.product,
       investmentRange: input.investmentRange,
-      sipAmount: input.sipAmount as any,
+      sipAmount: input.sipAmount,
       referralCode: input.referralCode,
       referralName: input.referralName,
       bioText: input.bioText,
-      approachAt: input.approachAt as any,
+      approachAt: input.approachAt as unknown as string,
       clientQa: undefined,
-      clientTypes: undefined as any,
-      remark: undefined as any,
-      leadSource: undefined as any,
-      occupations: input.occupations as any,
-    } as unknown as UpdateLeadDto);
+      clientTypes: undefined,
+      remark: undefined,
+      leadSource: undefined,
+      occupations: input.occupations,
+    };
+    const patch = this.buildLeadUpdateData(patchLike as unknown as UpdateLeadDto);
 
     // If nothing to change, just return current
     if (Object.keys(patch).length === 0) return prev;
@@ -231,7 +237,7 @@ export class IpkLeaddService {
 
     // Emit a compact snapshot for audit trail
     try {
-      const changed: Record<string, unknown> = {};
+      const changed: Record<string, { from: unknown; to: unknown }> = {};
       const watchedKeys = [
         'firstName',
         'lastName',
@@ -251,9 +257,11 @@ export class IpkLeaddService {
         'approachAt',
         'occupations',
       ];
+      const prevRec = prev as unknown as Record<string, unknown>;
+      const nextRec = next as unknown as Record<string, unknown>;
       for (const k of watchedKeys) {
-        if (JSON.stringify((prev as any)[k]) !== JSON.stringify((next as any)[k])) {
-          changed[k] = { from: (prev as any)[k] ?? null, to: (next as any)[k] ?? null };
+        if (JSON.stringify(prevRec[k]) !== JSON.stringify(nextRec[k])) {
+          changed[k] = { from: prevRec[k] ?? null, to: nextRec[k] ?? null };
         }
       }
       if (Object.keys(changed).length > 0) {
@@ -263,11 +271,11 @@ export class IpkLeaddService {
           tags: ['DETAILS'],
           prev: {
             id: leadId,
-            ...Object.fromEntries(Object.entries(changed).map(([k, v]) => [k, (v as any).from])),
+            ...Object.fromEntries(Object.entries(changed).map(([k, v]) => [k, v.from])),
           },
           next: {
             id: leadId,
-            ...Object.fromEntries(Object.entries(changed).map(([k, v]) => [k, (v as any).to])),
+            ...Object.fromEntries(Object.entries(changed).map(([k, v]) => [k, v.to])),
           },
           meta: { keys: Object.keys(changed) },
           authorId: authorId ?? null,
@@ -309,9 +317,9 @@ export class IpkLeaddService {
         endedAt: toDate(o.endedAt),
       }))
       .filter((o) => !!o.profession) as Array<
-        Required<Pick<Prisma.OccupationCreateInput, 'profession'>> &
+      Required<Pick<Prisma.OccupationCreateInput, 'profession'>> &
         Omit<Prisma.OccupationCreateInput, 'profession'>
-      >;
+    >;
     return mapped as Prisma.OccupationCreateInput[];
   }
 
@@ -356,10 +364,10 @@ export class IpkLeaddService {
           remark:
             input.remark !== undefined && input.remark !== null
               ? (this.pushRemark(existing.remark, {
-                kind: 'NOTE',
-                text: String(input.remark),
-              }) as any)
-              : (existing.remark as any),
+                  kind: 'NOTE',
+                  text: String(input.remark),
+                }) as unknown as Prisma.InputJsonValue)
+              : (existing.remark as unknown as Prisma.InputJsonValue),
           bioText: input.bioText ?? existing.bioText,
           ...(input.occupations !== undefined ? { occupations } : {}),
 
@@ -404,7 +412,10 @@ export class IpkLeaddService {
         clientTypes: input.clientTypes ?? null,
         remark:
           input.remark !== undefined && input.remark !== null
-            ? (this.pushRemark(null, { kind: 'NOTE', text: String(input.remark) }) as any)
+            ? (this.pushRemark(null, {
+                kind: 'NOTE',
+                text: String(input.remark),
+              }) as unknown as Prisma.InputJsonValue)
             : null,
         bioText: input.bioText ?? null,
         occupations,
@@ -906,7 +917,7 @@ export class IpkLeaddService {
         clientStage: stage as unknown as $Enums.ClientStage,
         approachAt: nextFollowUpAt ?? prev.approachAt ?? null,
         lastSeenAt: new Date(),
-        ...(stage === $Enums.ClientStage.ACCOUNT_OPENED && prev.status === $Enums.LeadStatus.CLOSED
+        ...(stage === GqlClientStage.ACCOUNT_OPENED && prev.status === $Enums.LeadStatus.CLOSED
           ? { leadCode: this.toIdelLeadCode(prev.leadCode) }
           : {}),
       },
@@ -991,13 +1002,13 @@ export class IpkLeaddService {
       assignedRmId: rmId, // ★ only the current RM’s leads
       OR: args.search
         ? [
-          { firstName: { contains: args.search, mode: 'insensitive' } },
-          { lastName: { contains: args.search, mode: 'insensitive' } },
-          { name: { contains: args.search, mode: 'insensitive' } },
-          { phone: { contains: args.search } },
-          { leadSource: { contains: args.search, mode: 'insensitive' } },
-          { leadCode: { contains: args.search, mode: 'insensitive' } },
-        ]
+            { firstName: { contains: args.search, mode: 'insensitive' } },
+            { lastName: { contains: args.search, mode: 'insensitive' } },
+            { name: { contains: args.search, mode: 'insensitive' } },
+            { phone: { contains: args.search } },
+            { leadSource: { contains: args.search, mode: 'insensitive' } },
+            { leadCode: { contains: args.search, mode: 'insensitive' } },
+          ]
         : undefined,
     };
 
@@ -1182,13 +1193,13 @@ export class IpkLeaddService {
       // text search
       OR: args.search
         ? [
-          { firstName: { contains: args.search, mode: 'insensitive' } },
-          { lastName: { contains: args.search, mode: 'insensitive' } },
-          { name: { contains: args.search, mode: 'insensitive' } },
-          { phone: { contains: args.search } },
-          { leadSource: { contains: args.search, mode: 'insensitive' } },
-          { leadCode: { contains: args.search, mode: 'insensitive' } },
-        ]
+            { firstName: { contains: args.search, mode: 'insensitive' } },
+            { lastName: { contains: args.search, mode: 'insensitive' } },
+            { name: { contains: args.search, mode: 'insensitive' } },
+            { phone: { contains: args.search } },
+            { leadSource: { contains: args.search, mode: 'insensitive' } },
+            { leadCode: { contains: args.search, mode: 'insensitive' } },
+          ]
         : undefined,
     };
 
@@ -1298,7 +1309,7 @@ export class IpkLeaddService {
     }
 
     const now = new Date();
-    const byName = (user as any)?.name ?? null;
+    const byName = user.name ?? null;
 
     // Require follow-up when product explained
     if (input.productExplained && !input.nextFollowUpAt) {
@@ -1351,7 +1362,7 @@ export class IpkLeaddService {
     if (note) {
       remarkEntries.push({ kind: 'NOTE', text: note, at: now.toISOString(), by: user.id, byName });
     }
-    updateData.remark = remarkEntries as any;
+    updateData.remark = remarkEntries as unknown as Prisma.InputJsonValue;
 
     const next = await this.prisma.ipkLeadd.update({
       where: { id: input.leadId },
@@ -1414,9 +1425,9 @@ export class IpkLeaddService {
       meta: input.productExplained
         ? ({ productExplained: true, channel: input.channel } as Record<string, unknown>)
         : ({ productExplained: false, reason: input.notExplainedReason ?? null } as Record<
-          string,
-          unknown
-        >),
+            string,
+            unknown
+          >),
       authorId: user.id,
     });
 

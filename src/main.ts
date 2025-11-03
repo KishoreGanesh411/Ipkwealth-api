@@ -2,6 +2,7 @@ import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { environment } from './environments/environment';
+import type { Request, Response, NextFunction } from 'express';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -16,21 +17,22 @@ async function bootstrap() {
   // Basic HTTP request logging in dev for visibility
   if (!environment.production) {
     const httpLogger = new Logger('HTTP');
-    app.use((req: any, res: any, next: any) => {
+    app.use((req: Request, res: Response, next: NextFunction) => {
       const { method } = req;
       const url: string = req.originalUrl || req.url;
       const start = process.hrtime.bigint();
       res.on('finish', () => {
         const ms = Number(process.hrtime.bigint() - start) / 1_000_000;
         const statusCode = res.statusCode;
-        const contentLength = res.getHeader?.('content-length') ?? '-';
+        const cl = res.getHeader?.('content-length');
+        const contentLength = Array.isArray(cl) ? cl.join(',') : String(cl ?? '-');
         httpLogger.log(`${method} ${url} ${statusCode} ${contentLength} - ${ms.toFixed(0)}ms`);
       });
       next();
     });
   }
 
-  const port = (environment as any).port ?? 3333;
+  const port = environment.port ?? 3333;
   await app.listen(port);
 
   // Visible startup URLs for REST and GraphQL

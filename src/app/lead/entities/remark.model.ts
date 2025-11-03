@@ -11,4 +11,3 @@ export class RemarkEntry {
   @Field(() => GraphQLISODateTime)
   createdAt!: Date;
 }
-

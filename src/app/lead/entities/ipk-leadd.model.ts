@@ -54,7 +54,6 @@ export class IpkLeaddEntity {
   @Field(() => String)
   leadSource!: string;
 
-
   @Field(() => String, { nullable: true })
   product?: string | null;
 

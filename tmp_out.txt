@@ -1,0 +1,130 @@
+  id        String    @id @default(auto()) @map("_id") @db.ObjectId
+
+  firstName String?
+  lastName  String?
+  name      String?
+  email     String?
+  phone     String
+  phoneNormalized String?
+  phones    LeadPhone[]
+
+  leadCode  String?   // partial unique in DB (create outside Prisma if you prefer)
+
+  gender    Gender?
+  age       Int?
+  location  String?
+
+  referralCode String?
+  referralName String?
+  leadSource   String
+
+  // Removed single profession field; use occupations[].profession per entry
+  // Deprecated single occupation fields removed; use embedded array instead
+  occupations     Occupation[]
+  product         Product?
+  investmentRange String?
+  sipAmount       Int?
+  clientTypes     String?
+
+  remark    Json?
+  bioText   String?
+
+  assignedRmId String? @db.ObjectId
+  assignedRm   User?   @relation("UserAssignedRm", fields: [assignedRmId], references: [id])
+  assignedRM   String? // denormalized display name
+
+  status    LeadStatus @default(PENDING)
+  clientStage ClientStage?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  archived  Boolean    @default(false)
+
+  revisitCount  Int        @default(0)
+  firstSeenAt   DateTime   @default(now())
+  lastSeenAt    DateTime?
+  reenterCount  Int        @default(0)
+  approachAt    DateTime?
+  clientQa      Json?
+
+  // Engagement tracking
+  lastContactedAt DateTime?
+  contactAttempts Int?
+  nextActionDueAt DateTime?
+
+  events        LeadEvent[]
+
+  // Optional scoring for prioritization
+  leadScore Int?
+
+  // Account applications opened by this lead
+  applications AccountApplication[]
+
+  @@index([leadSource])
+  @@index([assignedRmId])
+  @@index([createdAt])
+  @@index([status])
+  @@map("ipk_leadd")
+  @@index([clientStage])
+}
+
+enum PhoneLabel {
+  PRIMARY
+  MOBILE
+  WHATSAPP
+  WORK
+  HOME
+  OTHER
+}
+
+model LeadPhone {
+  id         String     @id @default(auto()) @map("_id") @db.ObjectId
+  leadId     String     @db.ObjectId
+  lead       IpkLeadd   @relation(fields: [leadId], references: [id])
+
+  label      PhoneLabel @default(MOBILE)
+  number     String
+  normalized String
+  isPrimary  Boolean    @default(false)
+  isWhatsapp Boolean    @default(false)
+  verifiedAt DateTime?
+
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  @@unique([leadId, normalized], map: "uniq_leadphone_lead_norm")
+  @@map("lead_phone")
+}
+
+// Account opening application tied to a lead
+model AccountApplication {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+
+  leadId    String   @db.ObjectId
+  lead      IpkLeadd @relation(fields: [leadId], references: [id])
+
+  applicationStatus ApplicationStatus @default(SUBMITTED)
+  kycStatus         KycStatus         @default(PENDING)
+
+  // Sensitive fields should be encrypted client-side or via service
+  encryptedPan      String?
+  encryptedAadhaar  String?
+
+  // Documents and preferences stored as JSON blobs
+  documents         Json?
+  riskProfile       String?
+  investmentPreferences Json?
+  consentAudit      Json?
+
+  submittedAt DateTime? @default(now())
+  reviewedAt  DateTime?
+  approvedAt  DateTime?
+  declinedAt  DateTime?
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([leadId])
+  @@index([applicationStatus])
+  @@index([kycStatus])
+  @@map("account_application")
+}

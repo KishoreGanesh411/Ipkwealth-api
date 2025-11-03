@@ -170,7 +170,7 @@ export class UserResolver {
       referralName: r.referralName ?? null,
       leadSource: r.leadSource,
       // single profession/companyName/designation removed; use occupations array
-      occupations: (r as any).occupations ?? null,
+      occupations: r.occupations ?? null,
       product: r.product ?? null,
       investmentRange: r.investmentRange ?? null,
       sipAmount: r.sipAmount ?? null,

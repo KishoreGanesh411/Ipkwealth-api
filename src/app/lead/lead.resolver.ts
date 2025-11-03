@@ -16,6 +16,7 @@ import { AssignLeadInput, AssignLeadsBulkInput } from './dto/assign.input';
 import { ChangeStageInput } from './dto/change-stage.input';
 import { BulkLeadRowInput, CreateIpkLeaddInput } from './dto/create-lead.input';
 import { LeadListArgs } from './dto/lead-list.args';
+import { UpdateLeadDto } from './dto/update-lead.dto';
 import { LeadPhoneInput, UpdateLeadBioInput, UpdateLeadRemarkInput } from './dto/lead-phone.input';
 import { ReassignLeadInput } from './dto/reassign-lead.input';
 import { RmFirstContactInput } from './dto/rm-first-contact.input';
@@ -124,15 +125,16 @@ export class IpkLeaddResolver {
     const raw = (lead as unknown as { remark?: unknown }).remark;
     if (raw === null || raw === undefined) return [];
 
-    const toArray = (v: unknown): any[] => {
+    const toArray = (v: unknown): unknown[] => {
       if (!v) return [];
-      if (Array.isArray(v)) return v as any[];
+      if (Array.isArray(v)) return v;
       if (typeof v === 'string') {
         return [{ text: v, at: new Date().toISOString() }];
       }
       if (typeof v === 'object') {
         const r = v as Record<string, unknown>;
-        if (Array.isArray((r as any).history)) return (r as any).history as any[];
+        const history = (r as { history?: unknown }).history;
+        if (Array.isArray(history)) return history as unknown[];
       }
       return [];
     };
@@ -140,14 +142,31 @@ export class IpkLeaddResolver {
     const arr = toArray(raw);
     const mapped: RemarkEntry[] = arr
       .map((e) => {
-        const text = typeof e?.text === 'string' ? e.text : String(e?.text ?? '');
-        const atRaw = (e as any)?.at;
-        const at = atRaw ? new Date(String(atRaw)) : new Date();
-        const byName = (e as any)?.byName;
-        const by = (e as any)?.by;
-        const author = typeof byName === 'string' && byName.trim().length > 0
-          ? byName
-          : (typeof by === 'string' ? by : null);
+        const obj = typeof e === 'object' && e !== null ? (e as Record<string, unknown>) : {};
+        const textVal = obj['text'];
+        let text: string;
+        if (typeof textVal === 'string') text = textVal;
+        else if (textVal == null) text = '';
+        else if (typeof textVal === 'number' || typeof textVal === 'boolean')
+          text = String(textVal);
+        else text = JSON.stringify(textVal);
+        const atRaw = obj['at'];
+        let at: Date;
+        if (atRaw instanceof Date && !isNaN(atRaw.getTime())) at = atRaw;
+        else if (typeof atRaw === 'string' || typeof atRaw === 'number') {
+          const d = new Date(atRaw);
+          at = isNaN(d.getTime()) ? new Date() : d;
+        } else {
+          at = new Date();
+        }
+        const byNameVal = obj['byName'];
+        const byVal = obj['by'];
+        const author =
+          typeof byNameVal === 'string' && byNameVal.trim().length > 0
+            ? byNameVal
+            : typeof byVal === 'string'
+              ? byVal
+              : null;
         return { text, author, createdAt: at } as RemarkEntry;
       })
       .filter((x) => x.text && x.text.length > 0);
@@ -243,7 +262,7 @@ export class IpkLeaddResolver {
   @Mutation(() => IpkLeaddEntity, { name: 'updateIpkLeadd' })
   updateIpkLeadd(@Args('input') input: UpdateIpkLeaddInput) {
     const { id, ...patch } = input as unknown as { id: string } & Record<string, unknown>;
-    return this.service.updateLead(id, patch as any);
+    return this.service.updateLead(id, patch as unknown as UpdateLeadDto);
   }
 
   @UseGuards(FirebaseAuthGuard)

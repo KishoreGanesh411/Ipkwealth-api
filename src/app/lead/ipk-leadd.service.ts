@@ -1005,7 +1005,9 @@ export class IpkLeaddService {
             { firstName: { contains: args.search, mode: 'insensitive' } },
             { lastName: { contains: args.search, mode: 'insensitive' } },
             { name: { contains: args.search, mode: 'insensitive' } },
+            { email: { contains: args.search, mode: 'insensitive' } },
             { phone: { contains: args.search } },
+            { phoneNormalized: { contains: args.search } },
             { leadSource: { contains: args.search, mode: 'insensitive' } },
             { leadCode: { contains: args.search, mode: 'insensitive' } },
           ]
@@ -1030,6 +1032,93 @@ export class IpkLeaddService {
     }
 
     // Avoid Mongo transactions for read-only ops; run in parallel instead
+    const [items, total] = await Promise.all([
+      this.prisma.ipkLeadd.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        include: { assignedRm: true },
+      }),
+      this.prisma.ipkLeadd.count({ where }),
+    ]);
+
+    return { items, page, pageSize, total };
+  }
+
+  async listTodayFollowUps(args: LeadListArgs) {
+    const page = Math.max(1, args.page ?? 1);
+    const pageSize = Math.min(100, Math.max(1, args.pageSize ?? 10));
+
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+
+    const andParts: Prisma.IpkLeaddWhereInput[] = [];
+
+    const where: Prisma.IpkLeaddWhereInput = {
+      archived: args.archived ?? false,
+      ...(args.status ? { status: args.status as unknown as $Enums.LeadStatus } : {}),
+      ...(args.clientStage
+        ? { clientStage: args.clientStage as unknown as $Enums.ClientStage }
+        : {}),
+      ...(args.stageIn?.length
+        ? { clientStage: { in: args.stageIn as unknown as $Enums.ClientStage[] } }
+        : {}),
+      ...(args.assignedRmId ? { assignedRmId: args.assignedRmId } : {}),
+      OR: args.search
+        ? [
+            { firstName: { contains: args.search, mode: 'insensitive' } },
+            { lastName: { contains: args.search, mode: 'insensitive' } },
+            { name: { contains: args.search, mode: 'insensitive' } },
+            { email: { contains: args.search, mode: 'insensitive' } },
+            { phone: { contains: args.search } },
+            { phoneNormalized: { contains: args.search } },
+            { leadSource: { contains: args.search, mode: 'insensitive' } },
+            { leadCode: { contains: args.search, mode: 'insensitive' } },
+          ]
+        : undefined,
+    };
+
+    andParts.push({ approachAt: { gte: start, lt: end } });
+
+    if (args.lastSeenBeforeDays && args.lastSeenBeforeDays > 0) {
+      const cutoff = new Date(Date.now() - args.lastSeenBeforeDays * 86_400_000);
+      andParts.push({
+        OR: [
+          { lastSeenAt: { lte: cutoff } },
+          { AND: [{ lastSeenAt: null }, { updatedAt: { lte: cutoff } }] },
+        ],
+      });
+    }
+
+    if (args.dormantOnly) {
+      const dormantOr: Prisma.IpkLeaddWhereInput[] = [];
+      const days = Number(args.dormantDays ?? 0);
+      if (days > 0) {
+        const cutoff = new Date(Date.now() - days * 86_400_000);
+        dormantOr.push({
+          OR: [
+            { lastSeenAt: { lte: cutoff } },
+            { AND: [{ lastSeenAt: null }, { updatedAt: { lte: cutoff } }] },
+          ],
+        });
+      }
+      dormantOr.push({ reenterCount: { gt: 0 } });
+      andParts.push({ OR: dormantOr });
+    }
+
+    if (args.createdAfter || args.createdBefore) {
+      andParts.push({
+        createdAt: {
+          ...(args.createdAfter ? { gte: args.createdAfter } : {}),
+          ...(args.createdBefore ? { lte: args.createdBefore } : {}),
+        },
+      });
+    }
+
+    if (andParts.length) where.AND = andParts;
+
     const [items, total] = await Promise.all([
       this.prisma.ipkLeadd.findMany({
         where,

@@ -227,10 +227,12 @@ type InviteRmPayload {
 
 type IpkLeaddEntity {
   age: Int
+  agingDays: Int!
   approachAt: DateTime
   archived: Boolean!
   assignedRM: String
   assignedRmId: ID
+  baseDateForAging: DateTime
   bioText: String
   clientQa: [ClientQaItem]
   clientStage: ClientStage
@@ -247,6 +249,7 @@ type IpkLeaddEntity {
   lastContactedAt: DateTime
   lastName: String
   lastSeenAt: DateTime
+  latestRemark: RemarkEntry
   leadCode: String
   leadSource: String!
   location: String
@@ -448,6 +451,8 @@ type Query {
   leadsOpen: [IpkLeaddEntity!]!
   me: UserEntity!
   myAssignedLeads(args: LeadListArgs! = {page: 1, pageSize: 10}): LeadPage!
+  myTodayFollowUps(args: LeadListArgs): LeadPage!
+  todayFollowUps(args: LeadListArgs): LeadPage!
 }
 
 input ReassignLeadInput {

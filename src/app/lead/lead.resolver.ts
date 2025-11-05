@@ -1,5 +1,15 @@
 import { ForbiddenException, UnauthorizedException, UseGuards } from '@nestjs/common';
-import { Args, ID, Int, Mutation, Parent, Query, ResolveField, Resolver } from '@nestjs/graphql';
+import {
+  Args,
+  GraphQLISODateTime,
+  ID,
+  Int,
+  Mutation,
+  Parent,
+  Query,
+  ResolveField,
+  Resolver,
+} from '@nestjs/graphql';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
@@ -174,6 +184,36 @@ export class IpkLeaddResolver {
     return mapped;
   }
 
+  // Latest remark for quick preview
+  @ResolveField(() => RemarkEntry, { name: 'latestRemark', nullable: true })
+  latestRemark(@Parent() lead: IpkLeaddEntity): RemarkEntry | null {
+    const arr = this.remarks(lead) ?? [];
+    if (!arr.length) return null;
+    const sorted = [...arr].sort(
+      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+    );
+    return sorted[sorted.length - 1] ?? null;
+  }
+
+  // Aging days based on approachAt (if set) else createdAt
+  @ResolveField(() => Int, { name: 'agingDays' })
+  agingDays(@Parent() lead: IpkLeaddEntity): number {
+    const base = this.baseDateForAging(lead) ?? lead.createdAt;
+    if (!base) return 0;
+    const msPerDay = 86_400_000; // 24*60*60*1000
+    const now = Date.now();
+    const diff = Math.floor((now - new Date(base).getTime()) / msPerDay);
+    return diff < 0 ? 0 : diff;
+  }
+
+  @ResolveField(() => GraphQLISODateTime, { name: 'baseDateForAging', nullable: true })
+  baseDateForAging(@Parent() lead: IpkLeaddEntity): Date | null {
+    const approach = lead.approachAt ? new Date(lead.approachAt) : null;
+    if (approach && !isNaN(approach.getTime())) return approach;
+    const created = lead.createdAt ? new Date(lead.createdAt) : null;
+    return created && !isNaN(created.getTime()) ? created : null;
+  }
+
   // ----------------------- Phone mutations -----------------------------
   @UseGuards(FirebaseAuthGuard)
   @Mutation(() => [LeadPhoneEntity])
@@ -307,15 +347,19 @@ export class IpkLeaddResolver {
     if (!user?.id) {
       throw new UnauthorizedException('User context missing');
     }
-    if (user.role !== UserRoles.RM) {
-      throw new ForbiddenException('Only RM users can access assigned leads');
-    }
 
+    // Strong permissioning behavior:
+    // - RM: only their assigned leads
+    // - ADMIN or MARKETING: can view all leads (optionally scoped via args.assignedRmId/search)
     const normalizedArgs = Object.assign(new LeadListArgs(), args);
     normalizedArgs.page = normalizedArgs.page ?? 1;
     normalizedArgs.pageSize = normalizedArgs.pageSize ?? 10;
 
-    return this.service.listForRm(user.id, normalizedArgs);
+    if (user.role === UserRoles.RM) {
+      return this.service.listForRm(user.id, normalizedArgs);
+    }
+    // Admins and Marketing can query the full list
+    return this.service.list(normalizedArgs);
   }
   @UseGuards(FirebaseAuthGuard)
   @Query(() => IpkLeaddEntity, { name: 'lead' })
@@ -368,6 +412,29 @@ export class IpkLeaddResolver {
     const a = Object.assign(new LeadListArgs(), args ?? {});
     a.clientStage = stage ?? a.clientStage;
     return this.service.list(a);
+  }
+
+  @UseGuards(FirebaseAuthGuard)
+  @Query(() => LeadPage, { name: 'todayFollowUps' })
+  todayFollowUps(@Args('args', { type: () => LeadListArgs, nullable: true }) args?: LeadListArgs) {
+    const a = Object.assign(new LeadListArgs(), args ?? {});
+    a.page = a.page ?? 1;
+    a.pageSize = a.pageSize ?? 10;
+    return this.service.listTodayFollowUps(a);
+  }
+
+  @UseGuards(FirebaseAuthGuard, RolesGuard)
+  @Roles(UserRoles.RM)
+  @Query(() => LeadPage, { name: 'myTodayFollowUps' })
+  myTodayFollowUps(
+    @Args('args', { type: () => LeadListArgs, nullable: true }) args: LeadListArgs,
+    @CurrentUser() user: UserEntity,
+  ) {
+    const a = Object.assign(new LeadListArgs(), args ?? {});
+    a.assignedRmId = user.id;
+    a.page = a.page ?? 1;
+    a.pageSize = a.pageSize ?? 10;
+    return this.service.listTodayFollowUps(a);
   }
   @UseGuards(FirebaseAuthGuard, RolesGuard)
   @Roles(UserRoles.RM)

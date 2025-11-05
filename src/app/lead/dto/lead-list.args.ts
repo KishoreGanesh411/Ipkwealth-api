@@ -1,6 +1,6 @@
 // src/app/lead/dto/lead-list.args.ts
 import { Field, ID, InputType, Int } from '@nestjs/graphql';
-import { ClientStage, LeadStatus } from '../enums/ipk-leadd.enum';
+import { ClientStage, LeadStatus, LeadStageFilter } from '../enums/ipk-leadd.enum';
 
 @InputType()
 export class LeadListArgs {
@@ -29,6 +29,8 @@ export class LeadListArgs {
   // ★ stage filters
   @Field(() => ClientStage, { nullable: true }) clientStage?: ClientStage;
   @Field(() => [ClientStage], { nullable: true }) stageIn?: ClientStage[];
+  // Optional RM intent/priority filter
+  @Field(() => LeadStageFilter, { nullable: true }) stageFilter?: LeadStageFilter;
 
   // ★ RM scope
   @Field(() => ID, { nullable: true }) assignedRmId?: string;

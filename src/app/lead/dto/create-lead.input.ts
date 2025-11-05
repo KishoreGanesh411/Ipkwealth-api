@@ -1,4 +1,5 @@
 import { Field, GraphQLISODateTime, InputType } from '@nestjs/graphql';
+import { LeadStageFilter } from '../enums/ipk-leadd.enum';
 
 @InputType()
 export class CreateIpkLeaddInput {
@@ -34,6 +35,10 @@ export class CreateIpkLeaddInput {
   // New: occupations array
   @Field(() => [OccupationInput], { nullable: true })
   occupations?: OccupationInput[];
+
+  // Optional RM intent/priority filter
+  @Field(() => LeadStageFilter, { nullable: true })
+  stageFilter?: LeadStageFilter;
 }
 
 @InputType()

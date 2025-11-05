@@ -1,4 +1,5 @@
 import { Field, GraphQLISODateTime, ID, InputType } from '@nestjs/graphql';
+import { LeadStageFilter } from '../enums/ipk-leadd.enum';
 import { OccupationInput } from './create-lead.input';
 
 @InputType()
@@ -37,4 +38,7 @@ export class UpdateLeadDetailsInput {
 
   // Optional: next action date when editing
   @Field(() => GraphQLISODateTime, { nullable: true }) approachAt?: Date | null;
+
+  // Optional RM intent/priority filter
+  @Field(() => LeadStageFilter, { nullable: true }) stageFilter?: LeadStageFilter;
 }

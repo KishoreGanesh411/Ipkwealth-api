@@ -30,6 +30,17 @@ export enum ClientStage {
   HIBERNATED = 'HIBERNATED',
 }
 
+// RM intent/priority filter — complements ClientStage
+export enum LeadStageFilter {
+  NEED_CLARIFICATION = 'NEED_CLARIFICATION',
+  FUTURE_INTERESTED = 'FUTURE_INTERESTED',
+  NOT_INTERESTED = 'NOT_INTERESTED',
+  NOT_ELIGIBLE = 'NOT_ELIGIBLE',
+  HIGH_PRIORITY = 'HIGH_PRIORITY',
+  LOW_PRIORITY = 'LOW_PRIORITY',
+  ON_PROCESS = 'ON_PROCESS',
+}
+
 export enum PhoneLabel {
   PRIMARY = 'PRIMARY',
   MOBILE = 'MOBILE',

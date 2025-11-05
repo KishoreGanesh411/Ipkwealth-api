@@ -1,6 +1,6 @@
 // src/app/lead/dto/change-stage.input.ts
 import { Field, ID, InputType } from '@nestjs/graphql';
-import { ClientStage, InteractionChannel } from '../enums/ipk-leadd.enum';
+import { ClientStage, InteractionChannel, LeadStageFilter } from '../enums/ipk-leadd.enum';
 
 @InputType()
 export class ChangeStageInput {
@@ -9,6 +9,10 @@ export class ChangeStageInput {
 
   @Field(() => ClientStage)
   stage!: ClientStage;
+
+  // Optional RM-assigned intent/priority filter for this stage change
+  @Field(() => LeadStageFilter, { nullable: true })
+  stageFilter?: LeadStageFilter | null;
 
   @Field(() => Boolean, { nullable: true })
   productExplained?: boolean;

@@ -1,7 +1,7 @@
 import { Field, GraphQLISODateTime, ID, Int, ObjectType } from '@nestjs/graphql';
 import { GraphQLJSON } from 'graphql-scalars';
 import { LeadEventEntity } from '../../lead_event/entities/lead-event.model';
-import { ClientStage, LeadStatus } from '../enums/ipk-leadd.enum';
+import { ClientStage, LeadStatus, LeadStageFilter } from '../enums/ipk-leadd.enum';
 import { LeadPhoneEntity } from './lead-phone.model';
 
 @ObjectType()
@@ -92,6 +92,9 @@ export class IpkLeaddEntity {
 
   @Field(() => ClientStage, { nullable: true })
   clientStage?: ClientStage | null;
+
+  @Field(() => LeadStageFilter, { nullable: true })
+  stageFilter?: LeadStageFilter | null;
 
   @Field(() => GraphQLISODateTime, { nullable: true })
   approachAt?: Date | null;

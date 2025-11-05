@@ -169,6 +169,12 @@ export class IpkLeaddService {
       data.occupations = occs ?? [];
     }
 
+    // New: RM intent/priority filter
+    if ((input as unknown as { stageFilter?: unknown }).stageFilter !== undefined) {
+      const sf = (input as unknown as { stageFilter?: string | null }).stageFilter;
+      data.stageFilter = (sf as unknown as $Enums.LeadStageFilter | null) ?? null;
+    }
+
     return data;
   }
 
@@ -222,6 +228,7 @@ export class IpkLeaddService {
       referralName: input.referralName,
       bioText: input.bioText,
       approachAt: input.approachAt as unknown as string,
+      stageFilter: (input as unknown as { stageFilter?: string }).stageFilter,
       clientQa: undefined,
       clientTypes: undefined,
       remark: undefined,
@@ -383,6 +390,10 @@ export class IpkLeaddService {
             input.clientQa !== undefined
               ? (input.clientQa as unknown as Prisma.InputJsonValue)
               : (existing.clientQa as unknown as Prisma.InputJsonValue | null),
+          // update stageFilter if provided on re-entry
+          ...(input.stageFilter !== undefined
+            ? { stageFilter: (input.stageFilter as unknown as $Enums.LeadStageFilter) ?? null }
+            : {}),
         },
         include: { assignedRm: true },
       });
@@ -433,6 +444,7 @@ export class IpkLeaddService {
         lastSeenAt: new Date(),
         approachAt: approachAt ?? null,
         clientQa: clientQa ? (clientQa as unknown as Prisma.InputJsonValue) : null,
+        stageFilter: (input.stageFilter as unknown as $Enums.LeadStageFilter) ?? null,
       },
       include: { assignedRm: true },
     });
@@ -888,13 +900,14 @@ export class IpkLeaddService {
     return next;
   }
   async changeStage(input: ChangeStageInput, authorId?: string | null) {
-    const { leadId, stage, productExplained, channel, nextFollowUpAt, note } = input;
+    const { leadId, stage, productExplained, channel, nextFollowUpAt, note, stageFilter } = input;
 
     const prev = await this.prisma.ipkLeadd.findUnique({
       where: { id: leadId },
       select: {
         status: true,
         clientStage: true,
+        stageFilter: true,
         assignedRM: true,
         assignedRmId: true,
         remark: true,
@@ -917,6 +930,10 @@ export class IpkLeaddService {
         clientStage: stage as unknown as $Enums.ClientStage,
         approachAt: nextFollowUpAt ?? prev.approachAt ?? null,
         lastSeenAt: new Date(),
+        stageFilter:
+          (stageFilter as unknown as $Enums.LeadStageFilter | null | undefined) === undefined
+            ? undefined
+            : ((stageFilter as unknown as $Enums.LeadStageFilter | null) ?? null),
         ...(stage === GqlClientStage.ACCOUNT_OPENED && prev.status === $Enums.LeadStatus.CLOSED
           ? { leadCode: this.toIdelLeadCode(prev.leadCode) }
           : {}),
@@ -949,6 +966,7 @@ export class IpkLeaddService {
       prev: {
         status: prev.status,
         clientStage: prev.clientStage,
+        stageFilter: prev.stageFilter,
         approachAt: prev.approachAt,
         lastSeenAt: prev.lastSeenAt,
         assignedRM: prev.assignedRM,
@@ -963,6 +981,7 @@ export class IpkLeaddService {
       next: {
         status: next.status,
         clientStage: next.clientStage,
+        stageFilter: (next as unknown as { stageFilter?: unknown }).stageFilter,
         approachAt: next.approachAt,
         lastSeenAt: next.lastSeenAt,
         assignedRM: next.assignedRM,
@@ -1011,6 +1030,12 @@ export class IpkLeaddService {
           ]
         : undefined,
     };
+
+    // apply stageFilter if provided
+    if (args.stageFilter) {
+      (where as unknown as { stageFilter?: $Enums.LeadStageFilter }).stageFilter =
+        (args.stageFilter as unknown as $Enums.LeadStageFilter) ?? undefined;
+    }
 
     // keep your existing dormant filter logic
     if (args.dormantOnly) {
@@ -1189,6 +1214,11 @@ export class IpkLeaddService {
 
       // RM scope
       ...(args.assignedRmId ? { assignedRmId: args.assignedRmId } : {}),
+
+      // lead stage filter (RM intent/priority)
+      ...(args.stageFilter
+        ? { stageFilter: args.stageFilter as unknown as $Enums.LeadStageFilter }
+        : {}),
 
       // text search
       OR: args.search

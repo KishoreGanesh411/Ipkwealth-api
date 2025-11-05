@@ -6,6 +6,7 @@ import {
 import {
   AssignMode,
   ClientStage,
+  LeadStageFilter,
   DormantReason,
   InteractionChannel,
   InteractionOutcome,
@@ -25,6 +26,7 @@ registerEnumType(UserRoles, { name: 'UserRoles' });
 registerEnumType(Status, { name: 'Status' });
 registerEnumType(LeadStatus, { name: 'LeadStatus' });
 registerEnumType(ClientStage, { name: 'ClientStage' });
+registerEnumType(LeadStageFilter, { name: 'LeadStageFilter' });
 registerEnumType(PhoneLabel, { name: 'PhoneLabel' });
 registerEnumType(LeadEventType, { name: 'LeadEventType' });
 registerEnumType(InteractionChannel, { name: 'InteractionChannel' });

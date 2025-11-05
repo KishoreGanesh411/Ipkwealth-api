@@ -128,6 +128,12 @@ export class CreateLeadDto {
   @ValidateNested({ each: true })
   @Type(() => OccupationDto)
   occupations?: OccupationDto[];
+
+  // Optional RM intent/priority filter (as string enum value)
+  @IsOptional()
+  @IsString()
+  @MaxLength(32)
+  stageFilter?: string;
 }
 
 export class OccupationDto {

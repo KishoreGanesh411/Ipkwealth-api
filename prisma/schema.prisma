@@ -146,6 +146,17 @@ enum ClientStage {
   HIBERNATED
 }
 
+// RM intent/priority filter — complements ClientStage
+enum LeadStageFilter {
+  NEED_CLARIFICATION
+  FUTURE_INTERESTED
+  NOT_INTERESTED
+  NOT_ELIGIBLE
+  HIGH_PRIORITY
+  LOW_PRIORITY
+  ON_PROCESS
+}
+
 model Counter {
   id      String @id @default(auto()) @map("_id") @db.ObjectId
   key     String @unique            // e.g. "lead_seq_2509"
@@ -224,6 +235,8 @@ model IpkLeadd {
 
   status    LeadStatus @default(PENDING)
   clientStage ClientStage?
+  // Optional RM-assigned intent/priority filter
+  stageFilter LeadStageFilter?
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
   archived  Boolean    @default(false)
@@ -254,6 +267,7 @@ model IpkLeadd {
   @@index([status])
   @@map("ipk_leadd")
   @@index([clientStage])
+  @@index([stageFilter])
 }
 
 enum PhoneLabel {

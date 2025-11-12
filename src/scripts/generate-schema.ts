@@ -9,7 +9,7 @@ async function run() {
   const app = await NestFactory.create(AppModule, { logger: false });
   await app.init();
 
-  const schemaPath = join(process.cwd(), 'src', 'schema.gql');
+  const schemaPath = join(process.cwd(), 'schema.gql');
   // Close immediately after initialization – no HTTP server needed
   await app.close();
 

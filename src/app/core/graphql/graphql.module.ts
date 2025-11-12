@@ -13,7 +13,10 @@ const isProd = !!environment.production;
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,
       path: '/graphql',
-      autoSchemaFile: isProd ? true : join(process.cwd(), 'src/schema.gql'),
+      // Avoid writing schema inside `src/` because it triggers TypeScript
+      // watchers and causes repeated rebuild/restarts in `nest start --watch`.
+      // Write to project root in dev, and use in-memory schema in prod.
+      autoSchemaFile: isProd ? true : join(process.cwd(), 'schema.gql'),
       sortSchema: true,
       introspection: true, // allows Apollo Sandbox & tools in dev
       csrfPrevention: false, // avoid 400 errors from CSRF plugin

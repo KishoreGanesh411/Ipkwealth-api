@@ -45,6 +45,8 @@ Thumbs.db
 prisma/.env
 firebase-service-account.json
 serviceAccount.json
+schema.gql
+src/schema.gql
 
 # ────────────────────────────────
 # Runtime / temp files

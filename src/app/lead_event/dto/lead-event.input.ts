@@ -1,9 +1,18 @@
-import { Field, ID, InputType } from '@nestjs/graphql';
+import { Field, ID, InputType, Int, registerEnumType } from '@nestjs/graphql';
 import {
   DormantReason,
   InteractionChannel,
   InteractionOutcome,
 } from '../../lead/enums/ipk-leadd.enum';
+
+export enum CallDirection {
+  INCOMING = 'INCOMING',
+  OUTGOING = 'OUTGOING',
+}
+
+registerEnumType(CallDirection, {
+  name: 'CallDirection',
+});
 
 @InputType()
 export class LeadNoteInput {
@@ -39,6 +48,30 @@ export class LeadInteractionInput {
 
   @Field(() => DormantReason, { nullable: true })
   dormantReason?: DormantReason;
+}
+
+@InputType()
+export class LogLeadCallInput {
+  @Field(() => ID)
+  leadId!: string;
+
+  @Field(() => String)
+  phoneNumber!: string;
+
+  @Field(() => CallDirection)
+  direction!: CallDirection;
+
+  @Field(() => Int)
+  durationSec!: number;
+
+  @Field(() => Date, { nullable: true })
+  occurredAt?: Date;
+
+  @Field(() => String, { nullable: true })
+  text?: string;
+
+  @Field(() => InteractionOutcome, { nullable: true })
+  outcome?: InteractionOutcome;
 }
 
 @InputType()

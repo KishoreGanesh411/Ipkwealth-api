@@ -8,6 +8,6 @@ import { GqlAuthGuard } from './gql-auth.guard';
 @Module({
   imports: [FirebaseModule, PrismaAppModule, forwardRef(() => UserModule)],
   providers: [FirebaseAuthGuard, GqlAuthGuard],
-  exports: [FirebaseAuthGuard, GqlAuthGuard],
+  exports: [FirebaseAuthGuard, GqlAuthGuard, UserModule],
 })
 export class AuthModule {}

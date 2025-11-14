@@ -13,6 +13,7 @@ import { CreateIpkLeaddInput } from './dto/create-lead.input';
 import { LeadListArgs } from './dto/lead-list.args';
 import { LeadPhoneInput } from './dto/lead-phone.input';
 import { UpdateLeadDto } from './dto/update-lead.dto';
+import { appendRemarkHistory, buildRemarkHistoryEntry, RemarkHistoryEntry } from './remark.util';
 import {
   DormantReason,
   InteractionChannel,
@@ -27,37 +28,6 @@ export class IpkLeaddService {
     private readonly dbseq: DbSeqService,
     private readonly leadEvents: LeadEventService,
   ) {}
-
-  // --- Remark helpers (JSON history) ---
-  private normalizeRemark(remark: unknown): Array<Record<string, unknown>> {
-    if (!remark) return [];
-    if (Array.isArray(remark)) return remark as Array<Record<string, unknown>>;
-    if (typeof remark === 'string') {
-      return [
-        {
-          kind: 'LEGACY',
-          text: remark,
-          at: new Date().toISOString(),
-        },
-      ];
-    }
-    try {
-      // If object like { history: [...] }
-      const r = remark as Record<string, unknown>;
-      const history = (r as { history?: unknown }).history;
-      if (Array.isArray(history)) return history as Array<Record<string, unknown>>;
-    } catch {}
-    return [];
-  }
-
-  private pushRemark(
-    existing: unknown,
-    entry: Record<string, unknown>,
-  ): Array<Record<string, unknown>> {
-    const arr = this.normalizeRemark(existing);
-    arr.push({ ...entry, at: (entry.at as string) ?? new Date().toISOString() });
-    return arr;
-  }
 
   private buildName(f?: string | null, l?: string | null, fb?: string | null) {
     const s = [f, l].filter(Boolean).join(' ');
@@ -106,16 +76,28 @@ export class IpkLeaddService {
   }
 
   async updateLead(id: string, input: UpdateLeadDto) {
-    const data = this.buildLeadUpdateData(input);
-    if (Object.keys(data).length === 0) {
+    const { remark, ...rest } = input as UpdateLeadDto & { remark?: string | null };
+    const data = this.buildLeadUpdateData(rest as UpdateLeadDto);
+
+    // If no fields to update and no remark provided, just return current
+    if (Object.keys(data).length === 0 && remark === undefined) {
       return this.findLeadById(id);
     }
 
-    return this.prisma.ipkLeadd.update({
-      where: { id },
-      data,
-      include: { assignedRm: true },
-    });
+    let next =
+      Object.keys(data).length > 0
+        ? await this.prisma.ipkLeadd.update({
+            where: { id },
+            data,
+            include: { assignedRm: true },
+          })
+        : await this.findLeadById(id);
+
+    if (remark !== undefined) {
+      next = await this.updateRemark(id, remark, null, null);
+    }
+
+    return next;
   }
 
   async removeLead(id: string) {
@@ -146,8 +128,9 @@ export class IpkLeaddService {
     if (input.sipAmount !== undefined) data.sipAmount = input.sipAmount ?? null;
     if (input.clientTypes !== undefined) data.clientTypes = input.clientTypes ?? null;
     if (input.remark !== undefined) {
-      const arr = this.pushRemark(null, { kind: 'NOTE', text: String(input.remark ?? '') });
-      data.remark = arr as unknown as Prisma.InputJsonValue;
+      const text = String(input.remark ?? '').trim();
+      const entry = buildRemarkHistoryEntry(text);
+      data.remark = appendRemarkHistory(null, entry) as unknown as Prisma.InputJsonValue;
     }
     if (input.bioText !== undefined) data.bioText = input.bioText ?? null;
 
@@ -203,9 +186,11 @@ export class IpkLeaddService {
       referralCode?: string;
       referralName?: string;
       bioText?: string;
+      remark?: string | null;
       approachAt?: Date | string | null;
     },
     authorId?: string | null,
+    authorName?: string | null,
   ) {
     const leadId = input.leadId;
     const prev = await this.prisma.ipkLeadd.findUnique({ where: { id: leadId } });
@@ -240,7 +225,7 @@ export class IpkLeaddService {
     // If nothing to change, just return current
     if (Object.keys(patch).length === 0) return prev;
 
-    const next = await this.prisma.ipkLeadd.update({ where: { id: leadId }, data: patch });
+    let next = await this.prisma.ipkLeadd.update({ where: { id: leadId }, data: patch });
 
     // Emit a compact snapshot for audit trail
     try {
@@ -290,6 +275,10 @@ export class IpkLeaddService {
       }
     } catch {
       // non-blocking
+    }
+
+    if (input.remark !== undefined) {
+      next = await this.updateRemark(leadId, input.remark, authorId ?? null, authorName ?? null);
     }
 
     return next;
@@ -352,6 +341,34 @@ export class IpkLeaddService {
         this.buildName(input.firstName, input.lastName, existing.name) ??
         existing.name;
 
+      // Normalize incoming remark, if any
+      const hasRemark = input.remark !== undefined && input.remark !== null;
+      const normalizedRemark = hasRemark ? String(input.remark ?? '').trim() : null;
+      const remarkEntry = normalizedRemark ? buildRemarkHistoryEntry(normalizedRemark) : null;
+      const nextRemarkJson = hasRemark
+        ? (appendRemarkHistory(
+            existing.remark ?? null,
+            remarkEntry!,
+          ) as unknown as Prisma.InputJsonValue)
+        : (existing.remark as unknown as Prisma.InputJsonValue);
+
+      const previousHistory = Array.isArray(existing.history)
+        ? (existing.history as unknown[])
+        : [];
+      const historyEntry = normalizedRemark
+        ? {
+            id: `remark-${Date.now()}`,
+            type: 'REMARK_UPDATED',
+            text: normalizedRemark,
+            at: remarkEntry!.at,
+            authorId: null,
+            authorName: null,
+          }
+        : null;
+      const nextHistoryJson = historyEntry
+        ? ([historyEntry, ...previousHistory] as unknown as Prisma.InputJsonValue)
+        : (existing.history as unknown as Prisma.InputJsonValue);
+
       return this.prisma.ipkLeadd.update({
         where: { id: existing.id },
         data: {
@@ -368,13 +385,8 @@ export class IpkLeaddService {
           investmentRange: input.investmentRange ?? existing.investmentRange,
           sipAmount: (input.sipAmount as number | null) ?? existing.sipAmount ?? null,
           clientTypes: input.clientTypes ?? existing.clientTypes,
-          remark:
-            input.remark !== undefined && input.remark !== null
-              ? (this.pushRemark(existing.remark, {
-                  kind: 'NOTE',
-                  text: String(input.remark),
-                }) as unknown as Prisma.InputJsonValue)
-              : (existing.remark as unknown as Prisma.InputJsonValue),
+          remark: nextRemarkJson,
+          history: nextHistoryJson,
           bioText: input.bioText ?? existing.bioText,
           ...(input.occupations !== undefined ? { occupations } : {}),
 
@@ -399,6 +411,26 @@ export class IpkLeaddService {
       });
     }
 
+    // Normalize initial remark, if any
+    const hasRemark = input.remark !== undefined && input.remark !== null;
+    const normalizedRemark = hasRemark ? String(input.remark ?? '').trim() : null;
+    const remarkEntry = normalizedRemark ? buildRemarkHistoryEntry(normalizedRemark) : null;
+    const remarkJson = remarkEntry
+      ? (appendRemarkHistory(null, remarkEntry) as unknown as Prisma.InputJsonValue)
+      : null;
+    const historyJson = remarkEntry
+      ? ([
+          {
+            id: `remark-${Date.now()}`,
+            type: 'REMARK_UPDATED',
+            text: normalizedRemark,
+            at: remarkEntry.at,
+            authorId: null,
+            authorName: null,
+          },
+        ] as unknown as Prisma.InputJsonValue)
+      : null;
+
     return this.prisma.ipkLeadd.create({
       data: {
         firstName: input.firstName ?? null,
@@ -421,13 +453,8 @@ export class IpkLeaddService {
         sipAmount: (input.sipAmount as number | null) ?? null,
 
         clientTypes: input.clientTypes ?? null,
-        remark:
-          input.remark !== undefined && input.remark !== null
-            ? (this.pushRemark(null, {
-                kind: 'NOTE',
-                text: String(input.remark),
-              }) as unknown as Prisma.InputJsonValue)
-            : null,
+        remark: remarkJson,
+        history: historyJson,
         bioText: input.bioText ?? null,
         occupations,
 
@@ -803,25 +830,50 @@ export class IpkLeaddService {
 
   async updateRemark(
     leadId: string,
-    remarkText: string,
+    remarkText: string | null | undefined,
     authorId?: string | null,
     authorName?: string | null,
   ) {
+    const normalized = remarkText ? remarkText.trim() : '';
+
     const prev = await this.prisma.ipkLeadd.findUnique({
       where: { id: leadId },
-      select: { remark: true },
+      select: { remark: true, history: true },
     });
-    const nextRemarkArr = this.pushRemark(prev?.remark ?? null, {
-      kind: 'NOTE',
-      text: remarkText,
-      by: authorId ?? null,
-      byName: authorName ?? null,
-    });
+
+    const entry = buildRemarkHistoryEntry(normalized, authorId, authorName);
+    const nextRemark = appendRemarkHistory(prev?.remark ?? null, entry);
+
+    const previousHistory = Array.isArray(prev?.history)
+      ? (prev?.history as unknown[])
+      : [];
+    const historyEntry = {
+      id: `remark-${Date.now()}`,
+      type: 'REMARK_UPDATED',
+      text: normalized,
+      at: entry.at,
+      authorId: authorId ?? null,
+      authorName: authorName ?? null,
+    };
+    const nextHistory = [historyEntry, ...previousHistory];
+
     const next = await this.prisma.ipkLeadd.update({
       where: { id: leadId },
-      data: { remark: nextRemarkArr as unknown as Prisma.InputJsonValue },
+      data: {
+        remark: nextRemark as unknown as Prisma.InputJsonValue,
+        history: nextHistory as unknown as Prisma.InputJsonValue,
+      },
+      include: { assignedRm: true },
     });
-    await this.leadEvents.remarkUpdated(leadId, prev?.remark ?? null, nextRemarkArr, authorId);
+
+    await this.leadEvents.remarkUpdated({
+      leadId,
+      prevRemark: prev?.remark ?? null,
+      nextRemark,
+      authorId,
+      authorName,
+    });
+
     return next;
   }
 
@@ -1365,32 +1417,47 @@ export class IpkLeaddService {
     }
 
     // Append structured remark entries
-    const prevRemarkArr = this.normalizeRemark(lead.remark);
-    const remarkEntries = [...prevRemarkArr];
+    const nowIso = now.toISOString();
+    const prevRemarkArr: Array<RemarkHistoryEntry & Record<string, unknown>> = Array.isArray(
+      lead.remark,
+    )
+      ? (lead.remark as Array<RemarkHistoryEntry & Record<string, unknown>>)
+      : typeof lead.remark === 'string' && lead.remark.trim().length > 0
+      ? [
+          {
+            ...buildRemarkHistoryEntry(String(lead.remark).trim()),
+            at: nowIso,
+          },
+        ]
+      : [];
+    const remarkEntries: Array<RemarkHistoryEntry & Record<string, unknown>> = [
+      ...prevRemarkArr,
+    ];
     const note = (input.note || '').trim();
     if (input.productExplained) {
+      const entry = buildRemarkHistoryEntry('First contact: product explained', user.id, byName);
       remarkEntries.push({
+        ...entry,
+        at: nowIso,
         kind: 'FIRST_CONTACT',
         productExplained: true,
         channel: input.channel,
         nextFollowUpAt: input.nextFollowUpAt ? input.nextFollowUpAt.toISOString() : null,
-        at: now.toISOString(),
-        by: user.id,
-        byName,
       });
     } else {
+      const entry = buildRemarkHistoryEntry('First contact: product not explained', user.id, byName);
       remarkEntries.push({
+        ...entry,
+        at: nowIso,
         kind: 'FIRST_CONTACT',
         productExplained: false,
         reason: input.notExplainedReason || null,
         nextFollowUpAt: input.nextFollowUpAt ? input.nextFollowUpAt.toISOString() : null,
-        at: now.toISOString(),
-        by: user.id,
-        byName,
       });
     }
     if (note) {
-      remarkEntries.push({ kind: 'NOTE', text: note, at: now.toISOString(), by: user.id, byName });
+      const entry = buildRemarkHistoryEntry(note, user.id, byName);
+      remarkEntries.push({ ...entry, at: nowIso, kind: 'NOTE' });
     }
     updateData.remark = remarkEntries as unknown as Prisma.InputJsonValue;
 
@@ -1476,12 +1543,13 @@ export class IpkLeaddService {
 
     // If remark changed, emit remark-updated event
     if (JSON.stringify(lead.remark ?? null) !== JSON.stringify(updateData.remark ?? null)) {
-      await this.leadEvents.remarkUpdated(
-        input.leadId,
-        lead.remark ?? null,
-        remarkEntries,
-        user.id,
-      );
+      await this.leadEvents.remarkUpdated({
+        leadId: input.leadId,
+        prevRemark: lead.remark ?? null,
+        nextRemark: remarkEntries,
+        authorId: user.id,
+        authorName: byName,
+      });
     }
 
     return next;

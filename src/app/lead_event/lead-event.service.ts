@@ -96,19 +96,27 @@ export class LeadEventService {
     });
   }
 
-  remarkUpdated(
-    leadId: string,
-    prevRemark: unknown,
-    nextRemark: unknown,
-    authorId?: string | null,
-  ) {
+  remarkUpdated(params: {
+    leadId: string;
+    prevRemark: unknown;
+    nextRemark: unknown;
+    authorId?: string | null;
+    authorName?: string | null;
+  }) {
+    const { leadId, prevRemark, nextRemark, authorId, authorName } = params;
+
     return this.createEvent({
       leadId,
       authorId,
       type: LeadEventType.REMARK_UPDATED as unknown as $Enums.LeadEventType,
       text: 'Remark updated',
-      prev: { remark: (prevRemark ?? null) as unknown } as Prisma.InputJsonValue,
-      next: { remark: (nextRemark ?? null) as unknown } as Prisma.InputJsonValue,
+      tags: ['REMARK'],
+      prev: { remark: prevRemark ?? null } as Prisma.InputJsonValue,
+      next: { remark: nextRemark ?? null } as Prisma.InputJsonValue,
+      meta: {
+        authorName: authorName ?? null,
+        authorId: authorId ?? null,
+      } as Prisma.InputJsonValue,
     });
   }
 

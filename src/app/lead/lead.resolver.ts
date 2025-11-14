@@ -254,7 +254,7 @@ export class IpkLeaddResolver {
   @UseGuards(FirebaseAuthGuard)
   @Mutation(() => IpkLeaddEntity, { name: 'updateLeadDetails' })
   updateLeadDetails(@Args('input') input: UpdateLeadDetailsInput, @CurrentUser() user: UserEntity) {
-    return this.service.updateLeadDetails(input, user?.id);
+    return this.service.updateLeadDetails(input, user?.id, user?.name ?? null);
   }
 
   // Generic lead update using UpdateIpkLeaddInput (backed by service.updateLead)

@@ -175,7 +175,10 @@ export class UserResolver {
       investmentRange: r.investmentRange ?? null,
       sipAmount: r.sipAmount ?? null,
       clientTypes: r.clientTypes ?? null,
-      remark: (r.remark as unknown) ?? null,
+      remark: Array.isArray(r.remark)
+        ? (r.remark as unknown as import('../lead/entities/remark.model').RemarkModel[])
+        : undefined,
+      history: (r.history as unknown) ?? null,
       assignedRmId: r.assignedRmId ?? null,
       assignedRM: r.assignedRM ?? null,
       firstSeenAt: r.firstSeenAt ?? null,

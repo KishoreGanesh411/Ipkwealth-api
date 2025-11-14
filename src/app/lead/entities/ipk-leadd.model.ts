@@ -1,8 +1,9 @@
 import { Field, GraphQLISODateTime, ID, Int, ObjectType } from '@nestjs/graphql';
 import { GraphQLJSON } from 'graphql-scalars';
 import { LeadEventEntity } from '../../lead_event/entities/lead-event.model';
-import { ClientStage, LeadStatus, LeadStageFilter } from '../enums/ipk-leadd.enum';
+import { ClientStage, LeadStageFilter, LeadStatus } from '../enums/ipk-leadd.enum';
 import { LeadPhoneEntity } from './lead-phone.model';
+import { RemarkModel } from './remark.model';
 
 @ObjectType()
 export class ClientQaItem {
@@ -75,8 +76,11 @@ export class IpkLeaddEntity {
   @Field(() => [LeadPhoneEntity], { nullable: 'itemsAndList' })
   phones?: LeadPhoneEntity[] | null;
 
+  @Field(() => [RemarkModel], { nullable: true })
+  remark?: RemarkModel[];
+
   @Field(() => GraphQLJSON, { nullable: true })
-  remark?: unknown;
+  history?: unknown;
 
   @Field(() => String, { nullable: true })
   bioText?: string | null;

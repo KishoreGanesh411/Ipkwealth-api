@@ -227,6 +227,7 @@ model IpkLeadd {
   clientTypes     String?
 
   remark    Json?
+  history   Json?
   bioText   String?
 
   assignedRmId String? @db.ObjectId

@@ -1,0 +1,14 @@
+query ReadLeadPhone($leadId: ID!) {
+  leadPhones(leadId: $leadId) {
+    id
+    leadId
+    label
+    number
+    normalized
+    isPrimary
+    isWhatsapp
+    verifiedAt
+    createdAt
+    updatedAt
+  }
+}

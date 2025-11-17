@@ -494,6 +494,13 @@ export class IpkLeaddService {
     return rms[idx];
   }
 
+  private async ensureLeadCode(existingCode?: string | null, at = new Date()): Promise<string> {
+    if (existingCode) return existingCode;
+    const { key, prefix } = makeMonthlyLeadKey(at);
+    const { start } = await this.dbseq.nextRange(key, 1);
+    return `${prefix}${pad4(start)}`;
+  }
+
   async assignLead(id: string) {
     const existing = await this.prisma.ipkLeadd.findUnique({
       where: { id },
@@ -506,12 +513,7 @@ export class IpkLeaddService {
     const now = new Date();
     const rm = await this.pickNextRm();
 
-    let leadCode = existing.leadCode;
-    if (!leadCode) {
-      const { key, prefix } = makeMonthlyLeadKey(now);
-      const { start } = await this.dbseq.nextRange(key, 1);
-      leadCode = `${prefix}${pad4(start)}`;
-    }
+    const leadCode = await this.ensureLeadCode(existing.leadCode, now);
 
     const updated = await this.prisma.ipkLeadd.update({
       where: { id },
@@ -918,13 +920,23 @@ export class IpkLeaddService {
     if (user.archived || user.status !== $Enums.Status.ACTIVE) {
       throw new BadRequestException('Selected RM is not active');
     }
+    const lead = await this.prisma.ipkLeadd.findUnique({
+      where: { id: leadId },
+      select: { leadCode: true, clientStage: true },
+    });
+    if (!lead) throw new Error('Lead not found');
+    const leadCode = await this.ensureLeadCode(lead.leadCode);
+
     const next = await this.prisma.ipkLeadd.update({
       where: { id: leadId },
       data: {
         assignedRmId: user.id,
         assignedRM: user.name,
         status: $Enums.LeadStatus.ASSIGNED,
+        leadCode,
+        clientStage: lead.clientStage ?? $Enums.ClientStage.NEW_LEAD,
       },
+      include: { assignedRm: true },
     });
     await this.leadEvents.assignment(leadId, user.id, user.name, authorId);
     return next;

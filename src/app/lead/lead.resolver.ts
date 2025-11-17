@@ -119,6 +119,12 @@ export class IpkLeaddResolver {
     return this.service.getEvents(lead.id);
   }
 
+  @UseGuards(FirebaseAuthGuard)
+  @Query(() => [LeadPhoneEntity], { name: 'leadPhones' })
+  leadPhones(@Args('leadId', { type: () => ID }) leadId: string) {
+    return this.service.getPhones(leadId);
+  }
+
   // Remarks: normalize JSON into a typed array
   @ResolveField(() => [RemarkEntry], { name: 'remarks', nullable: 'itemsAndList' })
   remarks(@Parent() lead: IpkLeaddEntity): RemarkEntry[] | null {
